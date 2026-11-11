@@ -35,11 +35,14 @@ SSL/TLS mode: **Full**. (While GitHub issues its certificate the first time, you
 1. **R2 → Create bucket** `moca-media`.
 2. Bucket **Settings → Custom domains → Connect domain** `media.museumofcomputerart.org`.
 3. Bucket **Settings → CORS**: allow `GET, HEAD` from `https://museumofcomputerart.org` (needed for the Flash player and fonts-style fetches).
-4. Upload the contents of the media folder (`media/` on the build machine) with rclone:
+4. **R2 → Manage API tokens → Create API token** with Object Read & Write on `moca-media`. Note the Account ID, Access Key ID and Secret Access Key.
+5. On the Mac that holds the backups, upload everything (originals straight from the backups, plus the WebP/MP4 versions in `~/Code/moca-media-variants`). It is safe to stop and re-run:
    ```sh
-   rclone config   # new remote "r2", type s3, provider Cloudflare, with an R2 API token
-   rclone copy ./media r2:moca-media --transfers 32 --checkers 32 --progress \
-     --header-upload "Cache-Control: public, max-age=31536000, immutable"
+   pip3 install boto3
+   export R2_ACCOUNT_ID=...  R2_ACCESS_KEY_ID=...  R2_SECRET_ACCESS_KEY=...
+   python3 tools/upload_r2.py --bucket moca-media \
+       --map ~/Code/moca-sites-unified-transfer/media-map-originals.tsv \
+       --variants ~/Code/moca-media-variants
    ```
    Object keys are the old site paths in lowercase (for example `autogallery2023/autogallery_doodles/doodle 01.jpg`), next to their generated `…w480.webp`, `…w1600.webp`, `….mp4` and `….poster.webp` versions.
 

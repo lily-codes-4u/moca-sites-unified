@@ -51,6 +51,8 @@ def main():
         jobs.append((key, os.path.join(a.home, rel), int(size)))
     for root, _, files in os.walk(a.variants):
         for f in files:
+            if f.startswith("."):
+                continue
             full = os.path.join(root, f)
             jobs.append((os.path.relpath(full, a.variants), full, os.path.getsize(full)))
     print(f"{len(jobs)} files, {sum(j[2] for j in jobs) / 1e9:.2f} GB", flush=True)
