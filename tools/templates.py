@@ -9,7 +9,7 @@ import shutil
 E = html.escape
 NAV = [("/collection.html", "Collection"), ("/ai.html", "AI Art"), ("/donnie.html", "The Donnie"),
        ("/artists.html", "Artists"), ("/archive.html", "Archive"), ("/about.htm", "About")]
-NAV_TEXT = re.compile(r"^((back to |to )?top( of page)?|next( page| image)?|previous( page| image)?|prev|back|go back|home|moca home|main page|index|top|return( to.*)?|"
+NAV_TEXT = re.compile(r"^(index of .*|first|last|first page|last page|view (all|contest) .*|(back to |to )?top( of page)?|next( page| image)?|previous( page| image)?|prev|back|go back|home|moca home|main page|index|top|return( to.*)?|"
                       r"moca|museum of computer art|mocadigitalart|moca\.virtual\.museum|forward|>>|<<|>|<|\d{1,3})$", re.I)
 ASSET_VER = {}
 
@@ -37,8 +37,7 @@ def head(title, url, desc, og_image, site_url, extra=""):
 <link rel="preload" href="/assets/fonts/bricolage.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/figtree.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="{asset('/assets/site.css')}">
-<link rel="preconnect" href="https://media.museumofcomputerart.org" crossorigin>
-<script src="{asset('/assets/site.js')}" defer></script>{extra}
+<!--PRECONNECT--><script src="{asset('/assets/site.js')}" defer></script>{extra}
 </head>"""
 
 
@@ -69,13 +68,25 @@ FOOTER = """<footer class="foot"><div class="wrap">
 </html>"""
 
 
+def finalize(doc):
+    """Speed touches applied to every page: preconnect to the media host only when the page
+    shows media; the first images are fetched eagerly, the very first at high priority."""
+    m = re.search(r'src="(https?://[^/"]+)/', doc.split("<main", 1)[-1])
+    pre = f'<link rel="preconnect" href="{m.group(1)}">\n' if m else ""
+    doc = doc.replace("<!--PRECONNECT-->", pre, 1)
+    head_, sep, main = doc.partition('<main id="main"')
+    if 'fetchpriority="high"' not in main:
+        main = main.replace(' loading="lazy"', ' fetchpriority="high"', 1)
+    main = main.replace(' loading="lazy"', "", 5)  # the next few images on screen: no lazy delay
+    return head_ + sep + main
+
+
 def page(title, url, section, body, desc="", og_image=None, site_url="", scripts=(), active=None, crumb=True):
     sec_name, color, sec_url = section
     extra = "".join(f'\n<script src="{asset(s)}" defer></script>' for s in scripts)
     crumbs = (f'<nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>/</span><a href="{E(sec_url)}">{E(sec_name)}</a></nav>'
               if crumb else "")
-    return (head(title, url, desc, og_image, site_url, extra) + header(active) +
-            f"""
+    return finalize(head(title, url, desc, og_image, site_url, extra) + header(active) + f"""
 <main id="main" class="wrap">
 <div class="phead b {color}">{crumbs}<h1>{E(title)}</h1></div>
 {body}
@@ -84,6 +95,14 @@ def page(title, url, section, body, desc="", og_image=None, site_url="", scripts
 
 
 # ------------------------------------------------------------------ blocks
+def LOGOISH(path, media):
+    m = media.get(path) or {}
+    w, h = m.get("w") or 0, m.get("h") or 0
+    if w and h and (w / h > 3 or h / w > 3 or (w < 120 and h < 120)):
+        return True
+    return bool(re.search(r"(logo|head|banner|title|top\d|header|button|footer)[^/]*$", path))
+
+
 def is_nav_para(b):
     if b["t"] != "p" or "<a " not in b["html"]:
         return False
@@ -97,8 +116,13 @@ def is_nav_para(b):
     return all(NAV_TEXT.match(html.unescape(re.sub(r"<[^>]+>", "", a)).strip()) for a in anchors)
 
 
+def link_only(b):
+    return bool(re.fullmatch(r"\s*(<[biu]>\s*)*<a [^>]*>.*?</a>\s*(</[biu]>\s*)*", b["html"], re.S))
+
+
 def short_para(b):
-    return b and b["t"] == "p" and 0 < len(b["text"]) <= 160 and b["html"].count("<a ") <= 1 and not b.get("used")
+    return (b and b["t"] == "p" and 0 < len(b["text"]) <= 160 and b["html"].count("<a ") <= 1 and not b.get("used")
+            and not link_only(b) and not is_nav_para(b))
 
 
 def link_dense(b):
@@ -124,11 +148,13 @@ def img_tag(path, media, media_url, alt, eager=False, sizes="(max-width: 700px) 
         parts = []
         if "480" in var:
             parts.append(f"{E(media_url(path, '480'))} {min(480, W or 480)}w")
+        if "800" in var:
+            parts.append(f"{E(media_url(path, '800'))} 800w")
         if "1600" in var:
             parts.append(f"{E(media_url(path, '1600'))} {min(1600, W or 1600)}w")
         srcset = f' srcset="{", ".join(parts)}" sizes="{sizes}"' if len(parts) > 1 else ""
     dims = f' width="{W}" height="{H}"' if W and H else ""
-    load = ' fetchpriority="high"' if eager else ' loading="lazy"'
+    load = ' fetchpriority="high"' if eager == "high" or eager is True else "" if eager else ' loading="lazy"'
     return f'<img src="{E(src)}"{srcset}{dims}{load} decoding="async" alt="{E(alt)}">'
 
 
@@ -143,13 +169,14 @@ def link_href(link, media_url):
 
 def figure(b, media_url, media, caption="", eager=False, big=False):
     path = b.get("src")
-    alt = b.get("alt") or re.sub(r"<[^>]+>", "", caption)[:120]
+    alt = b.get("alt") or html.unescape(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", caption))).strip()[:140]
+    caption = fill_media(caption, media_url) if caption else caption
     if b.get("ext"):
         tag = f'<img src="{E(b["ext"])}" loading="lazy" decoding="async" alt="{E(alt)}"' + (f' width="{b["w"]}" height="{b["h"]}"' if b.get("w") and b.get("h") else "") + ">"
         inner = tag
         full = b["ext"]
     else:
-        sizes = "(max-width: 900px) 100vw, 66vw" if big else "(max-width: 640px) 50vw, (max-width: 1040px) 33vw, 25vw"
+        sizes = "(max-width: 900px) 100vw, 66vw" if big else "(max-width: 640px) 50vw, (max-width: 1040px) 33vw, 260px"
         inner = img_tag(path, media, media_url, alt, eager=eager, sizes=sizes, w=b.get("w"), h=b.get("h"))
         full = media_url(path)
     link = b.get("link")
@@ -210,8 +237,13 @@ def render_blocks(blocks, media_url, media):
     content = []
     for b in blocks:
         if is_nav_para(b):
-            for m in re.finditer(r'<a href="([^"]*)"[^>]*>(.*?)</a>', b["html"], re.S):
-                label = html.unescape(re.sub(r"<[^>]+>", "", m.group(2))).strip()
+            for m in re.finditer(r'<a href="([^"]*)"([^>]*)>(.*?)</a>', b["html"], re.S):
+                if "data-missing" in m.group(2):
+                    lbl = html.unescape(re.sub(r"<[^>]+>", "", m.group(3))).strip()
+                    if lbl and lbl.lower() not in ("next", "previous", "prev", "back", "home", "moca home", ">", "<", ">>", "<<"):
+                        pager.append((None, lbl))
+                    continue
+                label = html.unescape(re.sub(r"<[^>]+>", "", m.group(3))).strip()
                 if re.match(r"^(moca|museum of computer art|mocadigitalart|moca\.virtual\.museum|home|main page)$", label, re.I):
                     label = "MOCA home"
                 if re.match(r"^(back to |to )?top( of page)?$", label, re.I):
@@ -219,12 +251,16 @@ def render_blocks(blocks, media_url, media):
                 pager.append((html.unescape(m.group(1)), label))
         else:
             content.append(b)
-    imgs = [i for i, b in enumerate(content) if b["t"] == "img" and not b.get("missing")]
-    first_img = next((content[i]["src"] for i in imgs if content[i].get("src")), None)
+    imgs = [i for i, b in enumerate(content) if b["t"] == "img" and not b.get("missing") and not (media.get(b.get("src") or "") or {}).get("error")]
+    first_img = next((content[i]["src"] for i in imgs if content[i].get("src") and not LOGOISH(content[i]["src"], media)), None)
     # caption direction
     before = sum(1 for i in imgs if i > 0 and short_para(content[i - 1]))
     after = sum(1 for i in imgs if i + 1 < len(content) and short_para(content[i + 1]))
-    direction = "before" if before > after else "after"
+    if before == after and imgs:
+        first_has = imgs[0] > 0 and short_para(content[imgs[0] - 1])
+        direction = "before" if first_has else "after"
+    else:
+        direction = "before" if before > after else "after"
     caps = {}
     for i in imgs:
         j = i - 1 if direction == "before" else i + 1
@@ -233,6 +269,7 @@ def render_blocks(blocks, media_url, media):
             caps[i] = content[j]["html"]
             content[j]["used"] = True
     out = []
+    lead = ""
     n_imgs = len(imgs)
     text_chars = sum(len(b.get("text", "")) for b in content if b["t"] in ("p", "h") and not b.get("used"))
     if n_imgs == 1 and text_chars < 2500:
@@ -243,6 +280,7 @@ def render_blocks(blocks, media_url, media):
                 continue
             info.append(render_text(b, media_url, media))
         cap = caps.get(i, "")
+        lead = html.unescape(re.sub(r"\s+", " ", re.sub(r"<br>", " · ", re.sub(r"<(?!br)[^>]+>", "", cap)))).strip(" ·")
         out.append('<div class="artwork">' + figure(content[i], media_url, media, cap, eager=True, big=True).replace('class="art"', 'class="art b"', 1)
                    + ('<div class="b info">' + "".join(x for x in info if x) + "</div>" if any(info) else "") + "</div>")
     else:
@@ -265,7 +303,7 @@ def render_blocks(blocks, media_url, media):
             if b.get("used"):
                 continue
             if b["t"] == "img":
-                if b.get("missing"):
+                if b.get("missing") or (media.get(b.get("src") or "") or {}).get("error"):
                     continue
                 close_prose()
                 run.append(figure(b, media_url, media, caps.get(k, ""), eager=first, big=(n_imgs <= 2)))
@@ -285,13 +323,18 @@ def render_blocks(blocks, media_url, media):
     if pager:
         seen, items = set(), []
         for href, label in pager:
-            if (href, label) in seen or not href:
+            if href is None:
+                if ("", label) not in seen:
+                    seen.add(("", label))
+                    items.append(f'<span class="pill dead" title="This page was not in the backups">{E(label)}</span>')
+                continue
+            if (href, label) in seen or not href or href.startswith("/") is False and not href.startswith(("http", "#", "mailto")):
                 continue
             seen.add((href, label))
             cls = " next" if label.lower().startswith(("next", "forward")) else ""
             items.append(f'<a class="pill{cls}" href="{E(fill_media(href, media_url) if "{{" in href else href)}">{E(label)}</a>')
         out.append('<nav class="pager" aria-label="Exhibit navigation">' + "".join(items) + "</nav>")
-    return "\n".join(x for x in out if x), first_img
+    return "\n".join(x for x in out if x), first_img, lead
 
 
 def render_text(b, media_url, media):
@@ -312,7 +355,7 @@ def render_text(b, media_url, media):
         return ('<p class="note">This page once had an online form that ran on the old server. '
                 'Please email <a href="mailto:don@moca.virtual.museum">don@moca.virtual.museum</a> instead.</p>')
     if t == "img":
-        return figure(b, media_url, media) if (b.get("src") or b.get("ext")) else ""
+        return figure(b, media_url, media) if ((b.get("src") and not (media.get(b["src"]) or {}).get("error")) or b.get("ext")) else ""
     if t in ("media", "embed"):
         return media_block(b, media_url, media)
     return ""
@@ -332,7 +375,7 @@ def render_autogallery(items, header_blocks, message_blocks, cfg, media_url, med
         m = media.get(it["src"]) or {}
         full = media_url(it["src"], "1600") if (m.get("variants") or {}).get("1600") and not m.get("animated") else media_url(it["src"])
         tiles.append(f'<figure class="art" id="image-{it["n"]}"><a class="zoom" href="{E(media_url(it["src"]))}" data-full="{E(full)}">'
-                     + img_tag(it["src"], media, media_url, it["caption"], eager=it["n"] <= 4)
+                     + img_tag(it["src"], media, media_url, it["caption"], eager=it["n"] <= 4, sizes="(max-width: 640px) 50vw, 260px")
                      + f'</a><figcaption>{E(it["caption"])}</figcaption></figure>')
     controls = (f'<div class="b gbar"><span>{len(items)} images</span>'
                 f'<button class="btn" id="play" data-timer="{timer}" type="button">▶ Play slideshow</button></div>' if items else "")
@@ -360,10 +403,11 @@ def write_assets(out, root):
 
 def write_meta(out, pages, site_url, write):
     # search index: title, url, section (loaded only when someone opens search)
-    idx = [[p["title"], p["url"], p["section"]] for p in pages if p.get("title")]
+    dup = lambda p: p["url"].startswith("/donnie(s)/")  # mirror of the /donnieYYYY/ folders
+    idx = [[p["title"], p["url"], p["section"]] for p in pages if p.get("title") and not dup(p)]
     with open(os.path.join(out, "search.json"), "w") as f:
         json.dump(idx, f, separators=(",", ":"))
-    urls = sorted({p["url"].split("#")[0] for p in pages})
+    urls = sorted({p["url"].split("#")[0] for p in pages if not dup(p)})
     for i in range(0, len(urls), 40000):
         chunk = urls[i:i + 40000]
         with open(os.path.join(out, f"sitemap-{i // 40000 + 1}.xml"), "w") as f:

@@ -1,0 +1,3 @@
+@ruffle-rs/ruffle 0.7.1 (npm, published 2026-10-07; latest stable dist-tag at vendoring time 2026-11-11)
+tarball sha512-6ZWxx/cfX3RoNyQ1AVimECSae4gKqMxdPimOD+chiIcOFiJS0ATGKcjkretxNT03lqNUpiSyJjF55AuvvZ+QeA== (matches registry dist.integrity)
+Usage: <script src="/vendor/ruffle/ruffle.js"></script> ; ruffle.js loads core.ruffle.*.js and *.wasm from its own directory.

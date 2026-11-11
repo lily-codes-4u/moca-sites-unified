@@ -103,6 +103,8 @@ def norm_internal(target, ctx):
         return ("anchor", t)
     if low.startswith(("mailto:", "tel:")):
         return ("mailto", t)
+    if re.fullmatch(r"[\w.+\-]+@[\w\-]+(\.[\w\-]+)+", t):
+        return ("mailto", "mailto:" + t)
     if low.startswith(("javascript:", "vbscript:")):
         m = re.search(r"['\"]([^'\"]+\.(?:jpe?g|gif|png|htm|html|asp))['\"]", t, re.I)
         if not m:
@@ -131,7 +133,8 @@ def norm_internal(target, ctx):
     if m:
         folder = posixpath.dirname(path)
         return ("page", f"/{folder}/#image-{m.group(1)}" if folder else "/")
-    if path in ("", "index.asp", "index.htm", "index.html", "default.asp", "default.htm", "indexx.asp"):
+    if path in ("", "index.asp", "index.htm", "index.html", "default.asp", "default.htm", "indexx.asp") or (
+            re.search(r"(^|/)(index|default)\.(asp|html?)$", path) and not ctx.exists(path)):
         return ("page", "/" + (("#" + frag) if frag else ""))
     if path in ctx.autogalleries or (path.endswith("/index.asp") and posixpath.dirname(path) in ctx.autogalleries):
         folder = path if path in ctx.autogalleries else posixpath.dirname(path)
@@ -170,6 +173,16 @@ def page_url(path):
     elif path.endswith(".asp"):
         path = path[:-4] + ".html"
     return "/" + path
+
+
+def seq_label(cur, target):
+    """'Next'/'Previous' from the page numbers in two file names (page014 -> page015)."""
+    a = re.search(r"(\d+)\D*$", posixpath.basename(cur))
+    b = re.search(r"(\d+)\D*$", posixpath.basename(target.split("#")[0]))
+    if not a or not b or posixpath.dirname("/" + cur) != posixpath.dirname(target.split("#")[0]):
+        return None
+    x, y = int(a.group(1)), int(b.group(1))
+    return "Next" if y > x else "Previous" if y < x else None
 
 
 def int_attr(v):
@@ -211,8 +224,10 @@ class Parser:
 
     def split_caption(self):
         """'Title<br><img>' on old pages: give the last line before an image its own paragraph."""
-        joined = "".join(self.buf)
-        parts = re.split(r"(?:\s*<br>\s*)+", joined.strip())
+        joined = re.sub(r"(\s*<br>\s*)+$", "", "".join(self.buf).strip())
+        if len(re.sub(r"<[^>]+>", "", joined)) <= 160:
+            return
+        parts = re.split(r"(?:\s*<br>\s*)+", joined)
         if len(parts) > 1 and re.sub(r"<[^>]+>", "", parts[-1]).strip():
             last = parts[-1]
             # keep tags balanced: only split when the tail has no unclosed inline tag
@@ -291,6 +306,12 @@ class Parser:
                 continue
             if name in ("embed", "object", "iframe", "video", "audio", "applet"):
                 self.embed(ch)
+                if name in ("object", "video", "audio"):
+                    rest = BeautifulSoup(str(ch), "lxml")
+                    for x in rest.find_all(["embed", "object", "param", "source", "video", "audio", "track"]):
+                        x.unwrap() if x.name in ("object", "video", "audio") else x.decompose()
+                    if rest.get_text(strip=True):
+                        self.walk(rest.body or rest, link)
                 continue
             if name == "map":
                 self.image_map(ch)
@@ -349,6 +370,13 @@ class Parser:
         if is_chrome:
             if link:
                 label = chrome_label(src, alt)
+                tgt = link[1] if isinstance(link[1], str) else link[1][1]
+                if link[0] == "missing":
+                    self.ctx.dropped.append(("chrome-linked-missing", src, tgt))
+                    return
+                if label in ("Next", "Previous", "Back") or (label == "MOCA home" and tgt not in ("/", "")):
+                    label = seq_label(self.ctx.page, tgt) or (label if label != "MOCA home" else
+                            re.sub(r"[_\-]+", " ", posixpath.splitext(posixpath.basename(tgt.split("#")[0].rstrip("/")))[0]).strip().title() or "Link")
                 self.buf.append(self.a_tag(link) + html.escape(label) + "</a> ")
                 self.ctx.dropped.append(("chrome-linked", src, label))
             else:
@@ -359,6 +387,11 @@ class Parser:
             return
         if kind != "media":
             self.ctx.dropped.append(("missing-image", src, val))
+            if link and link[0] != "missing":
+                # keep the link the picture carried, as text
+                label = alt or re.sub(r"[_\-]+", " ", posixpath.splitext(posixpath.basename(src.split("?")[0]))[0]).strip().title() or "Link"
+                self.buf.append(self.a_tag(link) + html.escape(label) + "</a> ")
+                return
             self.emit({"t": "img", "missing": val, "alt": alt, "w": w, "h": h, "link": link})
             return
         self.ctx.images.append(val)
@@ -377,9 +410,7 @@ class Parser:
             label = (area.get("alt") or area.get("title") or "").strip()
             if not label:
                 v = lk[1] if isinstance(lk[1], str) else lk[1][1]
-                label = "MOCA home" if v in ("/", "") else re.sub(r"[_\-]+", " ", posixpath.splitext(posixpath.basename(v.split("#")[0].rstrip("/")))[0]).strip().title() or "Link"
-                if re.match(r"^(Page)?\s*\d+$", label) or re.search(r"\d+$", label):
-                    label = "Next" if len(seen) else label
+                label = "MOCA home" if v in ("/", "") else (seq_label(self.ctx.page, v) or re.sub(r"[_\-]+", " ", posixpath.splitext(posixpath.basename(v.split("#")[0].rstrip("/")))[0]).strip().title() or "Link")
             key = (str(lk), label)
             if key in seen:
                 continue
@@ -406,10 +437,10 @@ class Parser:
                 if (p.get("name") or "").lower() in ("movie", "src", "filename", "url"):
                     src = p.get("value")
                     break
-        if not src and node.find("embed"):
-            return self.embed(node.find("embed"))
         if not src and name in ("video", "audio") and node.find("source"):
             src = node.find("source").get("src")
+        if not src and node.find("embed"):
+            return self.embed(node.find("embed"))
         if not src:
             if node.name == "applet":
                 self.ctx.dropped.append(("applet", node.get("code", ""), ""))
@@ -417,6 +448,9 @@ class Parser:
         low = src.lower().split("?")[0]
         if name == "iframe":
             kind, val = norm_internal(src, self.ctx)
+            if kind in ("media", "missing") and low.endswith(MEDIA_VIDEO + MEDIA_AUDIO + (".swf",)):
+                k = "flash" if low.endswith(".swf") else "video" if low.endswith(MEDIA_VIDEO) else "audio"
+                return self.media(src, k, node)
             self.emit({"t": "embed", "ext": val if kind == "external" else ("/" + val if kind == "media" else val), "kind": "iframe",
                        "w": int_attr(node.get("width")), "h": int_attr(node.get("height"))})
             return
@@ -445,6 +479,8 @@ class Parser:
         self.ctx.dropped.append(("server-form", action, ""))
 
     def walk_text_only(self, f):
+        if re.search(r"search|freefind|google|picosearch|atomz", (f.get("action") or "") + " " + f.get_text(" "), re.I) and len(f.get_text(" ", strip=True)) < 120:
+            return
         for x in f.find_all(["input", "select", "textarea", "button"]):
             x.decompose()
         self.walk(f)
@@ -471,5 +507,10 @@ def parse(text, ctx):
     for b in bgs:
         kind, val = norm_internal(b, ctx)
         if kind == "media":
-            ctx.dropped.append(("background", val, ""))
+            dims = ctx.dims(val) if hasattr(ctx, "dims") else None
+            if dims and dims[0] * dims[1] >= 250000:  # a real picture used as a page background
+                ctx.images.append(val)
+                p.blocks.insert(0, {"t": "img", "src": val, "alt": "", "w": dims[0], "h": dims[1], "link": None})
+            else:
+                ctx.dropped.append(("background", val, ""))
     return {"title": title, "desc": desc, "blocks": p.blocks}

@@ -76,7 +76,7 @@ def build_all(results, files, media, media_url, write, site_url):
         ex = f"donnie{y}/exhibitpages/exhibitindex.htm"
         if ex in by_path and ex not in pages:
             links += f'<a href="{E(by_path[ex]["url"])}">Exhibit index<span>all entries</span></a>'
-        dn_list.append(f'<div class="list" id="y{y}"><h3>{y}</h3>{links}</div>')
+        dn_list.append(f'<div class="list" id="y{y}"><h2>{y}</h2>{links}</div>')
     body = (f'<div class="b prose"><p>The Donnie is MOCA\'s yearly digital art contest, running for more than a quarter century. '
             f'Every surviving exhibit, winners page and catalog from {years[-1]} to {years[0]} is here.</p>'
             f'<p><a href="/donniearchive.htm">Donnie archive</a> · <a href="/catalogs.htm">All catalogs</a></p></div>'
@@ -131,7 +131,7 @@ def build_all(results, files, media, media_url, write, site_url):
         key = (n.split()[-1][:1] if n.split() else n[:1]).upper()
         groups[key if key.isalpha() else "#"].append(n)
     az = "".join(f'<a href="#l-{k}">{k}</a>' for k in sorted(groups))
-    lists = "".join(f'<div class="list" id="l-{k}"><h3>{k}</h3>' + "".join(f'<a href="{E(artists[n])}">{E(n)}</a>' for n in groups[k]) + "</div>" for k in sorted(groups))
+    lists = "".join(f'<div class="list" id="l-{k}"><h2>{k}</h2>' + "".join(f'<a href="{E(artists[n])}">{E(n)}</a>' for n in groups[k]) + "</div>" for k in sorted(groups))
     body = (f'<div class="b prose"><p>{len(names)} artists and exhibits linked from MOCA\'s gallery pages, sorted by last word of the name. '
             f'Use search (press /) to find anyone else, or browse the <a href="/directory/">complete directory of every page</a>.</p></div>'
             f'<nav class="az" aria-label="Jump to letter">{az}</nav><div class="cols">{lists}</div>')
@@ -154,7 +154,7 @@ def build_all(results, files, media, media_url, write, site_url):
         dir_links.append(f'<a href="/directory/{slug}.html">{E(top)}<span>{len(rs)}</span></a>')
     third = (len(dir_links) + 2) // 3
     cols = "".join(f'<div class="list">{"".join(dir_links[i:i + third])}</div>' for i in range(0, len(dir_links), third))
-    body = (f'<div class="b prose"><p>Every one of the {len(results):,} pages from moca.virtual.museum and mocadigitalart.com, grouped by the folder it lived in on the old sites.</p></div>'
+    body = (f'<div class="b prose"><p>Every one of the {len(results):,} pages from moca.virtual.museum and mocadigitalart.com, grouped by the folder it lived in on the old sites. Files that no page showed are in <a href="/unlisted/">Unlisted files</a>.</p></div>'
             f'<div class="cols">{cols}</div>')
     write("/directory/", T.page(title="Directory of every page", url="/directory/", section=("Archive", "c3", "/archive.html"), body=body, site_url=site_url))
 
@@ -166,11 +166,11 @@ def build_all(results, files, media, media_url, write, site_url):
         if r.get("autogallery"):
             y = re.match(r"/autogallery(\d{4})?", r["url"]).group(1) or "classic"
             ag_years[y].append(r)
-    ag_html = "".join(f'<div class="list"><h3>AutoGallery {y}</h3>' + "".join(f'<a href="{E(r["url"])}">{E(r["title"])}<span>{len(r["images"])} images</span></a>' for r in sorted(rs, key=lambda r: r["url"])) + "</div>"
+    ag_html = "".join(f'<div class="list"><h2>AutoGallery {y}</h2>' + "".join(f'<a href="{E(r["url"])}">{E(r["title"])}<span>{len(r["images"])} images</span></a>' for r in sorted(rs, key=lambda r: r["url"])) + "</div>"
                       for y, rs in sorted(ag_years.items(), reverse=True))
     legacy_homes = "".join(f'<a href="{u}">{t}</a>' for u, t in (("/index.htm", "mocadigitalart.com front page (2024)"), ("/legacy/moca-virtual-museum-home.html", "moca.virtual.museum front page (2024)")))
     body = (f'<div class="b prose"><p>Archives, indexes and catalogs from both former MOCA websites. For a list of absolutely every page, see the <a href="/directory/">directory</a>.</p>'
-            f'<p class="links">{legacy_homes}</p></div>'
+            f'<p class="links">{legacy_homes}<a href="/unlisted/">Unlisted files (shown on no page)</a></p></div>'
             f'<div class="cards">{"".join(card(p) for p in arch)}</div>'
             f'<h2 class="sec">AutoGallery, {len(ag)} galleries</h2><div class="cols">{ag_html}</div>')
     hub("/archive.html", "Archive", body, "c3", "MOCA archives: AutoGallery, the Donnie, catalogs, images of the day, editorial.", "/archive.html")
@@ -183,9 +183,59 @@ def build_all(results, files, media, media_url, write, site_url):
             '<p><a href="/autogallerysubmit.html">The previous submission guidelines</a> are kept for reference.</p></div>')
     hub("/submit.html", "Submit your art", body, "c3", "How to show your digital art at MOCA, free.")
 
+    # ---------------------------------------------------------- files no page shows
+    extra = build_unlisted(results, media, media_url, write, site_url)
     # ---------------------------------------------------------- Home
     build_home(ctx, write, years, card)
     build_404(write, results, files, site_url)
+    return extra
+
+
+def build_unlisted(results, media, media_url, write, site_url):
+    """Every image, video, Flash file and document that no page displays still gets a home,
+    so nothing from the old servers is only reachable by guessing its URL."""
+    shown = set()
+    for r in results:
+        shown.update(r.get("images", []))
+        shown.update(v for k, v in r.get("links", []) if k == "media")
+    groups = defaultdict(list)
+    for p, m in media.items():
+        if p in shown or m.get("type") in ("other", None) or m.get("error"):
+            continue
+        groups[p.split("/")[0] if "/" in p else "(top level)"].append(p)
+    pages, links = [], []
+    for top in sorted(groups, key=str.lower):
+        ps = sorted(groups[top])
+        slug = re.sub(r"[^a-z0-9_\-]+", "-", top.lower()).strip("-") or "top"
+        tiles, others = [], []
+        for p in ps:
+            m = media[p]
+            name = posixpath.basename(p)
+            if m["type"] == "image":
+                full = media_url(p, "1600") if (m.get("variants") or {}).get("1600") and not m.get("animated") else media_url(p)
+                tiles.append(f'<figure class="art"><a class="zoom" href="{E(media_url(p))}" data-full="{E(full)}">'
+                             + T.img_tag(p, media, media_url, name, sizes="(max-width: 640px) 50vw, 260px")
+                             + f'</a><figcaption>{E(p)}</figcaption></figure>')
+            else:
+                kind = m["type"]
+                b = {"t": "media", "src": p, "kind": "flash" if kind == "flash" else "video" if kind == "video" else "audio" if kind == "audio" else "other"}
+                others.append(f'<div><p class="note">{E(p)}</p>{T.media_block(b, media_url, media)}</div>')
+        body = (f'<div class="b prose"><p>{len(ps)} files from the <b>{E(top)}</b> folder of the old servers that no page displayed. '
+                f'They are kept here so that every file from both sites can be seen.</p></div>'
+                + (f'<div class="wall">{"".join(tiles)}</div>' if tiles else "") + "".join(others))
+        url = f"/unlisted/{slug}.html"
+        write(url, T.page(title=f"Unlisted files: {top}", url=url, section=("Archive", "c3", "/archive.html"), body=body,
+                          site_url=site_url, desc=f"Files from {top} on the old MOCA servers that no page displayed."))
+        pages.append({"path": f"unlisted/{slug}", "url": url, "title": f"Unlisted files: {top}", "section": "Archive",
+                      "images": ps, "links": [], "dropped": [], "text_chars": 0, "words": [], "unlisted": True})
+        links.append(f'<a href="{url}">{E(top)}<span>{len(ps)}</span></a>')
+    third = (len(links) + 2) // 3 or 1
+    cols = "".join(f'<div class="list">{"".join(links[i:i + third])}</div>' for i in range(0, len(links), third))
+    total = sum(len(v) for v in groups.values())
+    body = (f'<div class="b prose"><p>{total:,} images, videos and other files were stored on the old MOCA servers without any page showing them '
+            f'(earlier versions, spare sizes, works that were taken down from a page). Here they are, by folder.</p></div><div class="cols">{cols}</div>')
+    write("/unlisted/", T.page(title="Unlisted files", url="/unlisted/", section=("Archive", "c3", "/archive.html"), body=body, site_url=site_url))
+    return pages
 
 
 def build_home(ctx, write, years, card):
@@ -224,14 +274,14 @@ def build_home(ctx, write, years, card):
     dc = directors_choice(ctx)
     dc_html = ('<h2 class="sec">Director\'s choice</h2><div class="cards">' + "".join(dc) + "</div>") if dc else ""
     lists = ('<h2 class="sec">Contests, artists and archives</h2><div class="cols">'
-             f'<div class="list"><h3>The Donnie</h3>' + "".join(f'<a href="/donnie.html#y{y}">Donnie {y}<span>exhibit</span></a>' for y in years[:6]) + '<a href="/catalogs.htm">All catalogs<span>Blurb</span></a></div>'
-             '<div class="list"><h3>Grandmasters</h3>' + "".join(f'<a href="/{p if p.endswith("/") else by_path[p]["url"].lstrip("/") if p in by_path else p}">{E(n)}<span>Grandmaster</span></a>' for n, p in GRANDMASTERS[:7]) + '<a href="/grandmasters.htm">All grandmasters<span>17</span></a></div>'
-             '<div class="list"><h3>Archives</h3><a href="/autogalleryarchive.htm">AutoGallery archive<span>2008–2024</span></a><a href="/donniearchive.htm">Donnie archive<span></span></a>'
+             f'<div class="list"><h2>The Donnie</h2>' + "".join(f'<a href="/donnie.html#y{y}">Donnie {y}<span>exhibit</span></a>' for y in years[:6]) + '<a href="/catalogs.htm">All catalogs<span>Blurb</span></a></div>'
+             '<div class="list"><h2>Grandmasters</h2>' + "".join(f'<a href="/{p if p.endswith("/") else by_path[p]["url"].lstrip("/") if p in by_path else p}">{E(n)}<span>Grandmaster</span></a>' for n, p in GRANDMASTERS[:7]) + '<a href="/grandmasters.htm">All grandmasters<span>17</span></a></div>'
+             '<div class="list"><h2>Archives</h2><a href="/autogalleryarchive.htm">AutoGallery archive<span>2008–2024</span></a><a href="/donniearchive.htm">Donnie archive<span></span></a>'
              '<a href="/imageofthedayindex.htm">Images of the Day<span></span></a><a href="/editorial/editorial.htm">Reviews &amp; essays<span></span></a><a href="/mocanet/mocalist.htm">MOCAnet artist sites<span></span></a><a href="/directory/">Every page, A to Z<span></span></a></div></div>')
     body = hero + galleries + dc_html + lists
     html_ = T.head("MOCA · Museum of Computer Art", "/", "The Museum of Computer Art: digital fine art since 1993. Galleries, AI art, the Donnie contest and decades of archives, free to view.",
                    media_url(feat_img, "1600") if feat_img else None, ctx["site_url"]) + T.header("/") + f'\n<main id="main" class="wrap">{body}</main>\n' + T.FOOTER
-    html_ = html_.replace("</body>", '<script>(function(){var t=document.querySelector(".doodle");if(!t||matchMedia("(prefers-reduced-motion: reduce)").matches)return;var l=JSON.parse(t.dataset.doodles||"[]"),i=0,im=t.querySelector("img");if(!im||l.length<2)return;im.removeAttribute("srcset");setInterval(function(){i=(i+1)%l.length;var n=new Image();n.onload=function(){im.src=n.src};n.src=l[i]},4000)})();</script>\n</body>')
+    html_ = T.finalize(html_.replace("</body>", '<script>(function(){var t=document.querySelector(".doodle");if(!t||!window.IntersectionObserver||matchMedia("(prefers-reduced-motion: reduce)").matches)return;var l=JSON.parse(t.dataset.doodles||"[]"),i=0,im=t.querySelector("img"),vis=false,tm=null;if(!im||l.length<2)return;function tick(){if(!vis||document.hidden)return;i=(i+1)%l.length;var n=new Image();n.onload=function(){im.removeAttribute("srcset");im.src=n.src};n.src=l[i]}function sync(){clearInterval(tm);tm=(vis&&!document.hidden)?setInterval(tick,4000):null}new IntersectionObserver(function(e){vis=e[0].isIntersecting;sync()}).observe(t);document.addEventListener("visibilitychange",sync)})();</script>\n</body>'))
     write("/", html_)
 
 

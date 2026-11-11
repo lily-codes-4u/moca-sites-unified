@@ -38,7 +38,8 @@ REPORT = os.path.join(ROOT, "build")
 SERVER_SCRIPT = re.compile(
     r"(upload|admin|guestbook|configure_|setup_email|check_user|delete_|add_comments|amend_|sign\.asp|"
     r"logindatabase|send_mail|test_ms|test_my|test_mail|/test/|payform|submitthanks\.asp|_vti_|hostinger/|hostgator/)", re.I)
-DRAFT_EXT = re.compile(r"\.(htm|html|asp)[a-z]+$|\.htmm$|\.assp$|\.aspng$")
+JUNK = re.compile(r"(^|/)(_vti_cnf|_vti_pvt|_notes|smologin\d*|index (ionos|hostgator|hostinger|files)|donnie2006test)(/|$)|(^|/)[^/]* copy( \d+)?\.[a-z]+$|(^|/)[^/]* \d\.(asp|htm|html)$", re.I)
+DRAFT_EXT = re.compile(r"\.(htmx+|htmlx+|aspxx+|htmxxxx|htmm|assp|aspng)$")
 
 with open(MERGED_JSON) as f:
     FILES = json.load(f)
@@ -89,6 +90,9 @@ def classify_pages(ags):
         low = p
         if p in ag_index:
             continue
+        if JUNK.search(low):
+            skipped.append((p, "editor/backup/test file, not a published page (FrontPage _vti_cnf, 'copy' files, login system, test folders)"))
+            continue
         if DRAFT_EXT.search(low):
             skipped.append((p, "unpublished draft copy (file name ends in xx/x)"))
             continue
@@ -131,7 +135,11 @@ def section_for(p):
     return ("Artist exhibit", "c1", "/artists.html")
 
 
-GENERIC_TITLE = re.compile(r"^(moca[:\s-]*)?(the )?(museum of computer art|moca|mocadigitalart|moca\.virtual\.museum|untitled( document)?|new page \d*|index)$", re.I)
+LEGACY_TITLES = {"index.htm": "mocadigitalart.com front page (as of 2024)",
+                 "index.asp": "moca.virtual.museum front page (as of 2024)",
+                 "index.html": "moca.virtual.museum front page (2022)"}
+GENERIC_TITLE = re.compile(r"^(moca[:\s-]*)?(the )?(museum of computer art|moca|mocadigitalart|moca\.virtual\.museum|untitled( document)?|new page \d*|index|"
+                           r"don archer digital art|digital art|computer art|home|\d{1,3}|this artist|enter your search terms.*|click (here|image).*|this page has not been fully populated)$", re.I)
 
 
 def pick_title(parsed, p):
@@ -164,11 +172,21 @@ def build_page(p, ags):
     text = legacy.resolve_includes(text, p, read)
     text = legacy.clean_asp(text)
     ctx = legacy.Ctx(p, exists, set(ags))
+    ctx.dims = lambda v: (MEDIA[v]["w"], MEDIA[v]["h"]) if (MEDIA.get(v) or {}).get("w") and (MEDIA.get(v) or {}).get("h") else None
     parsed = legacy.parse(text, ctx)
+    for im in ctx.images:
+        if (MEDIA.get(im) or {}).get("error"):
+            ctx.dropped.append(("undecodable-or-empty-source", im, MEDIA[im]["error"][:120]))
     title = pick_title(parsed, p)
     section = section_for(p)
     url = legacy.page_url(p)
-    body, first_img = T.render_blocks(parsed["blocks"], media_url, MEDIA)
+    body, first_img, lead = T.render_blocks(parsed["blocks"], media_url, MEDIA)
+    if lead and 3 < len(lead) < 90 and lead.lower() not in title.lower() and not GENERIC_TITLE.match(lead):
+        title = lead if title.lower() in lead.lower() else (f"{lead} · {title}" if len(title) < 40 else lead)
+    title = LEGACY_TITLES.get(p, title)
+    if len(title) > 90:
+        title = title[:87].rsplit(" ", 1)[0].rstrip(" ·,:;-") + "…"
+    body = body.replace('alt=""', f'alt="{html.escape(title)}"')
     desc = parsed["desc"] or next((b["text"] for b in parsed["blocks"] if b["t"] == "p" and len(b["text"]) > 60), "")
     page_html = T.page(title=title, url=url, section=section, body=body, desc=desc,
                        og_image=media_url(first_img, "1600") if first_img else None, site_url=SITE_URL)
@@ -209,7 +227,11 @@ def build_autogallery(folder, index_path):
     ctx = legacy.Ctx(index_path, exists, set())
     header = legacy.parse("<body>" + cfg.get("PageHeader", "") + "</body>", ctx)
     message = legacy.parse("<body>" + cfg.get("PageMessage", "") + "</body>", ctx)
-    title = re.sub(r"<[^>]+>", "", cfg.get("PageTitle", "")).strip() or folder.split("/")[-1].replace("autogallery_", "").title()
+    title = re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", cfg.get("PageTitle", "")))).strip()
+    if not title or GENERIC_TITLE.match(title) or len(title) < 3:
+        hb = next((b["text"] for b in message["blocks"] + header["blocks"] if b.get("text") and not GENERIC_TITLE.match(b["text"].split(" · ")[0])
+                   and not re.search(r"moca|autogallery|submit|home", b["text"], re.I)), "")
+        title = (hb.split("  ")[0][:80] if hb else "") or folder.split("/")[-1].replace("autogallery_", "").replace("_", " ").title()
     section = section_for(folder + "/")
     url = "/" + folder + "/"
     body = T.render_autogallery(items, header["blocks"], message["blocks"], cfg, media_url, MEDIA)
@@ -250,6 +272,7 @@ def main():
     only = os.environ.get("MOCA_ONLY")
     if only:
         pages = [p for p in pages if re.search(only, p)]
+    T.write_assets(OUT, ROOT)  # before rendering, so every page gets the ?v= hashes
     jobs = [("ag", f, ags) for f in sorted(ags)] + [("page", p, ags) for p in pages]
     results = []
     with ProcessPoolExecutor(max_workers=os.cpu_count()) as ex:
@@ -258,7 +281,8 @@ def main():
     errors = [r for r in results if "error" in r]
     ok = [r for r in results if "error" not in r]
     import hubs
-    hubs.build_all(ok, FILES, MEDIA, media_url, write, SITE_URL)
+    extra = hubs.build_all(ok, FILES, MEDIA, media_url, write, SITE_URL)
+    ok += extra
     T.write_assets(OUT, ROOT)
     T.write_meta(OUT, ok, SITE_URL, write)
     with open(os.path.join(REPORT, "pages.json"), "w") as f:

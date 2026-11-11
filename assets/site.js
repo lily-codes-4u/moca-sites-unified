@@ -3,9 +3,10 @@
   var d = document, $ = function (s, r) { return (r || d).querySelector(s); };
   // theme memory is not needed: we follow the OS setting.
   var menu = $("#menubtn"), nav = $("#nav");
-  if (menu) menu.addEventListener("click", function () {
-    var o = nav.classList.toggle("open"); menu.setAttribute("aria-expanded", o);
-  });
+  if (menu) {
+    menu.addEventListener("click", function () { var o = nav.classList.toggle("open"); menu.setAttribute("aria-expanded", o); });
+    d.addEventListener("keydown", function (e) { if (e.key === "Escape" && nav.classList.contains("open")) { nav.classList.remove("open"); menu.setAttribute("aria-expanded", false); menu.focus(); } });
+  }
 
   // ---- image viewer
   var lb = $("#lb");
@@ -57,7 +58,10 @@
     }).join("") || "<li style='padding:10px 12px;color:var(--muted)'>No matches</li>";
   }
   var sb = $("#searchbtn"); if (sb) sb.addEventListener("click", openSearch);
-  if (q) { q.addEventListener("input", run); }
+  if (q) {
+    q.addEventListener("input", run);
+    q.addEventListener("keydown", function (e) { if (e.key === "Enter") { var a = res.querySelector("a"); if (a) { e.preventDefault(); location.href = a.href; } } });
+  }
   if (sd) sd.addEventListener("click", function (e) { if (e.target === sd || e.target.classList.contains("x")) sd.close(); });
   d.addEventListener("keydown", function (e) {
     if (e.key === "/" && !/input|textarea|select/i.test(d.activeElement.tagName)) { e.preventDefault(); openSearch(); }
