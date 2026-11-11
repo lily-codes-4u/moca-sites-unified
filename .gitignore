@@ -1,0 +1,5 @@
+build/pages.json
+__pycache__/
+*.pyc
+.DS_Store
+media/
