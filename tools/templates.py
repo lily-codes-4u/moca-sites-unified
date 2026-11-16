@@ -70,14 +70,28 @@ FOOTER = """<footer class="foot"><div class="wrap">
 
 def finalize(doc):
     """Speed touches applied to every page: preconnect to the media host only when the page
-    shows media; the first images are fetched eagerly, the very first at high priority."""
-    m = re.search(r'src="(https?://[^/"]+)/', doc.split("<main", 1)[-1])
+    shows media; the first images are fetched eagerly, the very first at high priority.
+    Only <img> tags are touched: embedded players (iframes) stay lazy, and old http:// images
+    on third-party hosts never get the preconnect or the high priority."""
+    after = doc.split("<main", 1)[-1]
+    m = re.search(r'<img [^>]*?src="(https://[^/"]+)/', after) or re.search(r'src="(https://[^/"]+)/', after)
     pre = f'<link rel="preconnect" href="{m.group(1)}">\n' if m else ""
     doc = doc.replace("<!--PRECONNECT-->", pre, 1)
     head_, sep, main = doc.partition('<main id="main"')
-    if 'fetchpriority="high"' not in main:
-        main = main.replace(' loading="lazy"', ' fetchpriority="high"', 1)
-    main = main.replace(' loading="lazy"', "", 5)  # the next few images on screen: no lazy delay
+    state = {"high": 'fetchpriority="high"' in main, "eager": 5}  # the next few images on screen: no lazy delay
+
+    def speed(mt):
+        tag = mt.group(0)
+        if ' loading="lazy"' not in tag:
+            return tag
+        if not state["high"] and ' src="https://' in tag:
+            state["high"] = True
+            return tag.replace(' loading="lazy"', ' fetchpriority="high"', 1)
+        if state["eager"] > 0:
+            state["eager"] -= 1
+            return tag.replace(' loading="lazy"', "", 1)
+        return tag
+    main = re.sub(r"<img [^>]*>", speed, main)
     return head_ + sep + main
 
 
@@ -137,6 +151,25 @@ def fill_media(h, media_url):
     return re.sub(r"\{\{MEDIA:([^}]*)\}\}", lambda m: E(media_url(html.unescape(m.group(1)))), h)
 
 
+WEB_IMAGE = (".jpg", ".jpeg", ".gif", ".png", ".bmp", ".webp", ".svg", ".avif", ".ico")
+
+
+def view_url(path, media, media_url):
+    """The file the image viewer (lightbox, slideshow) shows: the 1600px WebP when there is one,
+    the original when it is animated or a format browsers display, else the largest WebP made
+    from it (Photoshop, TIFF and misnamed files cannot be shown by a browser)."""
+    m = media.get(path) or {}
+    var = m.get("variants") or {}
+    if var.get("1600") and not m.get("animated"):
+        return media_url(path, "1600")
+    if m.get("animated") or path.lower().endswith(WEB_IMAGE):
+        return media_url(path)
+    for v in ("800", "480"):
+        if var.get(v):
+            return media_url(path, v)
+    return media_url(path)
+
+
 def img_tag(path, media, media_url, alt, eager=False, sizes="(max-width: 700px) 100vw, 50vw", w=None, h=None):
     m = media.get(path) or {}
     W, H = m.get("w") or w, m.get("h") or h
@@ -188,8 +221,7 @@ def figure(b, media_url, media, caption="", eager=False, big=False):
         else:
             a = f'<a href="{E(href)}"{" rel=noopener" if ext else ""}>{inner}</a>'
     else:
-        m = media.get(path or "") or {}
-        disp = media_url(path, "1600") if (m.get("variants") or {}).get("1600") and not m.get("animated") else full
+        disp = view_url(path, media, media_url) if path else full
         a = f'<a class="zoom" href="{E(full)}" data-full="{E(disp)}">{inner}</a>'
     cap = f"<figcaption>{caption}</figcaption>" if caption else ""
     return f'<figure class="art">{a}{cap}</figure>'
@@ -372,10 +404,9 @@ def render_autogallery(items, header_blocks, message_blocks, cfg, media_url, med
     timer = re.sub(r"\D", "", cfg.get("SlideShowTimer", "4")) or "4"
     tiles = []
     for it in items:
-        m = media.get(it["src"]) or {}
-        full = media_url(it["src"], "1600") if (m.get("variants") or {}).get("1600") and not m.get("animated") else media_url(it["src"])
+        full = view_url(it["src"], media, media_url)
         tiles.append(f'<figure class="art" id="image-{it["n"]}"><a class="zoom" href="{E(media_url(it["src"]))}" data-full="{E(full)}">'
-                     + img_tag(it["src"], media, media_url, it["caption"], eager=it["n"] <= 4, sizes="(max-width: 640px) 50vw, 260px")
+                     + img_tag(it["src"], media, media_url, it["caption"], eager="high" if it["n"] == 1 else it["n"] <= 4 and "eager", sizes="(max-width: 640px) 50vw, 260px")
                      + f'</a><figcaption>{E(it["caption"])}</figcaption></figure>')
     controls = (f'<div class="b gbar"><span>{len(items)} images</span>'
                 f'<button class="btn" id="play" data-timer="{timer}" type="button">▶ Play slideshow</button></div>' if items else "")
