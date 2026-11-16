@@ -56,22 +56,46 @@ def build_all(results, files, media, media_url, write, site_url):
         w, h = m.get("w") or 0, m.get("h") or 0
         return not (w and h and (min(w, h) < 160 or not 0.45 <= w / h <= 2.2))
 
-    def thumb(r, used):
-        """The card picture: the page's own first artwork, else the first artwork found by following
-        its links up to three steps away, first within the page's own folder, then anywhere (never
-        through the old front pages), avoiding pictures already shown on the same hub."""
+    def big(im):
+        # Site graphics (venue banners, catalog covers, buttons) were made small; artwork rarely is.
+        m = media.get(im) or {}
+        side = max(m.get("w") or 0, m.get("h") or 0)
+        return not side or side >= 500
+
+    def own_art(r):
+        return [im for im in [r.get("first_img")] + list(r.get("images") or []) if good_thumb(im)] if r else []
+
+    def own_pics(paths):
+        """The first pictures the given hub cards' own pages show; other cards should not borrow them."""
+        return {own_art(r)[0] for p in paths for r in [by_path.get(p) or by_url.get("/" + p if p.endswith("/") else "")] if own_art(r)}
+
+    def thumb(r, used, reserved=()):
+        """The card picture: the page's own first artwork not yet on this hub (or, failing that, its
+        own artwork even if repeated: a page's card never shows a neighbouring page's picture when
+        it has one of its own). A page with no artwork borrows the first found by following its
+        links up to three steps away, first within the page's own folder, then anywhere (never
+        through the old front pages). Nearer pictures win: at the same distance, one not yet on
+        the hub and not another card's own picture (`reserved`) is preferred, but a farther
+        (less related) picture is never taken just to avoid a repeat. A small picture (under
+        500px) on a linked page counts as one step further away than a full-size one, so a
+        contest card shows an entry rather than the venue flyer or catalog cover one link nearer."""
+        own = own_art(r)
+        if own:
+            return next((im for im in own if im not in used), own[0])
         top = r["url"].split("/")[1]
-        fallback = None
         for same_folder in (True, False):
-            seen, level = {r["url"]}, [r]
-            for _ in range(3):
-                nxt = []
+            seen, level, held = {r["url"]}, [r], None
+            for depth in range(3):
+                nxt, small, taken = [], None, None
                 for x in level:
                     for im in [x.get("first_img")] + list(x.get("images") or []):
                         if good_thumb(im):
-                            if im not in used:
+                            if im in used or im in reserved:
+                                taken = taken or im
+                            elif big(im):
                                 return im
-                            fallback = fallback or im
+                            else:
+                                small = small or im
                     for kind, v in x.get("links", []):
                         u = v.split("#")[0] if kind == "page" else ""
                         if u in HOME_URLS or u in seen or (same_folder and u.split("/")[1:2] != [top]):
@@ -80,15 +104,20 @@ def build_all(results, files, media, media_url, write, site_url):
                         if t and len(nxt) < 80:
                             seen.add(u)
                             nxt.append(t)
-                level = nxt
-        return fallback
+                # a nearer picture beats a farther one, even if it is already on the hub
+                if held or taken:
+                    return held or taken
+                held, level = small, nxt
+            if held:
+                return held
+        return None
 
-    def card(p, title=None, sub=None, used=None):
+    def card(p, title=None, sub=None, used=None, reserved=()):
         r = by_path.get(p) or by_url.get("/" + p if p.endswith("/") else "")
         if not r:
             return ""
         used = set() if used is None else used
-        img = thumb(r, used)
+        img = thumb(r, used, reserved)
         if img:
             used.add(img)
         pic = (T.img_tag(img, media, media_url, "", sizes="(max-width:640px) 50vw, 220px") if img else
@@ -136,17 +165,19 @@ def build_all(results, files, media, media_url, write, site_url):
     body = ('<div class="b prose"><p>Don Archer\'s art made with artificial intelligence, first shown on mocadigitalart.com: '
             'collections, portraits, the Doodles, images of the day and yearly exhibits.</p>'
             '<p><a href="/autogallery2023/autogallery_doodles/">Doodle slideshow</a> · <a href="/index.htm">The original mocadigitalart.com front page</a></p></div>')
+    ai_used, ai_own = set(), own_pics([p for _, ps in ai_groups for p in ps])
     for name, ps in ai_groups:
         if ps:
-            body += f'<h2 class="sec">{E(name)}</h2><div class="cards">{"".join(card(p) for p in ps)}</div>'
+            body += f'<h2 class="sec">{E(name)}</h2><div class="cards">{"".join(card(p, used=ai_used, reserved=ai_own) for p in ps)}</div>'
     hub("/ai.html", "AI Art", body, "c5", "Don Archer's AI art collections, portraits and exhibits.", "/ai.html")
 
     # ---------------------------------------------------------- Collection
-    used = set()
-    body = '<div class="cards">' + "".join(card(p, t, "Gallery", used) for t, p in GALLERIES) + "</div>"
-    body += '<h2 class="sec">Grandmasters</h2><div class="cards">' + "".join(card(p, n, "Grandmaster", used) for n, p in GRANDMASTERS) + "</div>"
+    used, also = set(), [p for p in ("autogalleryarchive.htm", "grandmasters.htm", "mocanet/mocalist.htm", "editorial/editorial.htm", "adon/abase.asp", "digivid/brown_valleys.htm") if p in by_path]
+    own = own_pics([p for _, p in GALLERIES + GRANDMASTERS] + also)
+    body = '<div class="cards">' + "".join(card(p, t, "Gallery", used, own) for t, p in GALLERIES) + "</div>"
+    body += '<h2 class="sec">Grandmasters</h2><div class="cards">' + "".join(card(p, n, "Grandmaster", used, own) for n, p in GRANDMASTERS) + "</div>"
     body += ('<h2 class="sec">Also in the collection</h2><div class="cards">'
-             + "".join(card(p, used=used) for p in ("autogalleryarchive.htm", "grandmasters.htm", "mocanet/mocalist.htm", "editorial/editorial.htm", "adon/abase.asp", "digivid/brown_valleys.htm") if p in by_path)
+             + "".join(card(p, used=used, reserved=own) for p in also)
              + "</div>")
     hub("/collection.html", "The collection", body, "c1", "Browse MOCA's galleries: photo-based, drawn, 3D, fractal, mixed, surreal, video and more.", "/collection.html")
 
@@ -210,10 +241,10 @@ def build_all(results, files, media, media_url, write, site_url):
             ag_years[y].append(r)
     ag_html = "".join(f'<div class="list"><h2>AutoGallery {y}</h2>' + "".join(f'<a href="{E(r["url"])}">{E(r["title"])}<span>{len(r["images"])} images</span></a>' for r in sorted(rs, key=lambda r: r["url"])) + "</div>"
                       for y, rs in sorted(ag_years.items(), reverse=True))
-    legacy_homes = "".join(f'<a href="{u}">{t}</a>' for u, t in (("/index.htm", "mocadigitalart.com front page (2024)"), ("/legacy/moca-home.html", "Original MOCA front page (2024)")))
+    legacy_homes = "".join(f'<a href="{u}">{t}</a><br>' for u, t in (("/index.htm", "mocadigitalart.com front page (2024)"), ("/legacy/moca-home.html", "Original MOCA front page (2024)")))
     body = (f'<div class="b prose"><p>Archives, indexes and catalogs from both former MOCA websites. For a list of absolutely every page, see the <a href="/directory/">directory</a>.</p>'
             f'<p class="links">{legacy_homes}<a href="/unlisted/">Unlisted files (shown on no page)</a></p></div>'
-            f'<div class="cards">{"".join(card(p, used=arch_used) for p in arch)}</div>'
+            f'<div class="cards">{"".join(card(p, used=arch_used, reserved=own_pics(arch)) for p in arch)}</div>'
             f'<h2 class="sec">AutoGallery, {len(ag)} galleries</h2><div class="cols">{ag_html}</div>')
     hub("/archive.html", "Archive", body, "c3", "MOCA archives: AutoGallery, the Donnie, catalogs, images of the day, editorial.", "/archive.html")
 
@@ -250,13 +281,16 @@ def build_unlisted(results, media, media_url, write, site_url):
         ps = sorted(groups[top])
         slug = re.sub(r"[^a-z0-9_\-]+", "-", top.lower()).strip("-") or "top"
         tiles, others = [], []
+        cls = T.wall_class(sum(1 for p in ps if media[p]["type"] == "image" and not T.is_deco({"src": p}, media)),
+                           sum(1 for p in ps if media[p]["type"] == "image"))
+        sizes = "(max-width: 640px) 50vw, 260px" if cls == "wall" else T.SIZES_BIG
         for p in ps:
             m = media[p]
             name = posixpath.basename(p)
             if m["type"] == "image":
-                full = media_url(p, "1600") if (m.get("variants") or {}).get("1600") and not m.get("animated") else media_url(p)
-                tiles.append(f'<figure class="art"><a class="zoom" href="{E(media_url(p))}" data-full="{E(full)}">'
-                             + T.img_tag(p, media, media_url, name, sizes="(max-width: 640px) 50vw, 260px")
+                full = T.view_url(p, media, media_url)
+                tiles.append(f'<figure class="{T.fig_class({"src": p}, media)}"><a class="zoom" href="{E(media_url(p))}" data-full="{E(full)}">'
+                             + T.img_tag(p, media, media_url, name, sizes=sizes, tile=True)
                              + f'</a><figcaption>{E(p)}</figcaption></figure>')
             else:
                 kind = m["type"]
@@ -264,7 +298,7 @@ def build_unlisted(results, media, media_url, write, site_url):
                 others.append(f'<div><p class="note">{E(p)}</p>{T.media_block(b, media_url, media)}</div>')
         body = (f'<div class="b prose"><p>{len(ps)} files from the <b>{E(top)}</b> folder of the old servers that no page displayed. '
                 f'They are kept here so that every file from both sites can be seen.</p></div>'
-                + (f'<div class="wall">{"".join(tiles)}</div>' if tiles else "") + "".join(others))
+                + (f'<div class="{cls}">{"".join(tiles)}</div>' if tiles else "") + "".join(others))
         url = f"/unlisted/{slug}.html"
         write(url, T.page(title=f"Unlisted files: {top}", url=url, section=("Archive", "c3", "/archive.html"), body=body,
                           site_url=site_url, desc=f"Files from {top} on the old MOCA servers that no page displayed."))
@@ -312,7 +346,8 @@ def build_home(ctx, write, years, card):
   <div class="b about"><div style="flex:1;min-width:0"><span class="k" style="color:var(--muted)">About</span><p style="margin-top:6px">A 501(c)(3) nonprofit founded by Don Archer and Bob Dodson, chartered by the NYS Department of Education.</p></div><a href="/about.htm" style="font-weight:700;white-space:nowrap">Our story →</a></div>
   <div class="b pol">{pol}</div>
 </div>"""
-    used = set()
+    # The Director's choice row below shows these pictures; the gallery cards should not repeat them.
+    used = {by_path[p]["first_img"] for p in DC_PICKS if p in by_path and by_path[p].get("first_img")}
     galleries = '<h2 class="sec" id="collection">Browse the collection</h2><div class="cards">' + "".join(card(p, t, "Gallery", used) for t, p in GALLERIES) + "</div>"
     dc = directors_choice(ctx)
     dc_html = ('<h2 class="sec">Director\'s choice</h2><div class="cards">' + "".join(dc) + "</div>") if dc else ""
@@ -323,20 +358,23 @@ def build_home(ctx, write, years, card):
              '<a href="/imageofthedayindex.htm">Images of the Day<span></span></a><a href="/editorial/editorial.htm">Reviews &amp; essays<span></span></a><a href="/mocanet/mocalist.htm">MOCAnet artist sites<span></span></a><a href="/directory/">Every page, A to Z<span></span></a></div></div>')
     body = hero + galleries + dc_html + lists
     html_ = T.head("MOCA · Museum of Computer Art", "/", "The Museum of Computer Art: digital fine art since 1993. Galleries, AI art, the Donnie contest and decades of archives, free to view.",
-                   media_url(feat_img, "1600") if feat_img else None, ctx["site_url"]) + T.header("/") + f'\n<main id="main" class="wrap">{body}</main>\n' + T.FOOTER
+                   media_url(feat_img, "1600") if feat_img else None, ctx["site_url"],
+                   ld=(T.org_ld(ctx["site_url"]), T.website_ld(ctx["site_url"]))) + T.header("/") + f'\n<main id="main" class="wrap">{body}</main>\n' + T.FOOTER
     html_ = T.finalize(html_.replace("</body>", '<script>(function(){var t=document.querySelector(".doodle");if(!t||!window.IntersectionObserver||matchMedia("(prefers-reduced-motion: reduce)").matches)return;var l=JSON.parse(t.dataset.doodles||"[]"),i=0,im=t.querySelector("img"),vis=false,tm=null;if(!im||l.length<2)return;function tick(){if(!vis||document.hidden)return;i=(i+1)%l.length;var n=new Image();n.onload=function(){im.removeAttribute("srcset");im.src=n.src};n.src=l[i]}function sync(){clearInterval(tm);tm=(vis&&!document.hidden)?setInterval(tick,4000):null}new IntersectionObserver(function(e){vis=e[0].isIntersecting;sync()}).observe(t);document.addEventListener("visibilitychange",sync)})();</script>\n</body>'))
     write("/", html_)
 
 
-def directors_choice(ctx):
-    picks = ["prystrom/prystrom01.htm", "open/santos_t/santos_t03.htm", "open/baar/baar02.htm", "open/castellano/castellano08.htm",
+DC_PICKS = ["prystrom/prystrom01.htm", "open/santos_t/santos_t03.htm", "open/baar/baar02.htm", "open/castellano/castellano08.htm",
              "open/broadfoot/broadfoot04.htm", "open/marini/marini03.htm", "open/ammel/ammel09.htm", "guest/bahreini/bahreini01.htm",
              "benshoshan/benshoshan01.htm", "open/lee/lee01.htm", "guest/mccoy/mccoy07.htm", "harvey/harvey01.htm",
              "kwakman/kwakman01.htm", "open/castile/castile01.htm", "yakovina/yakovina07.htm", "camlica/camlica01.htm",
              "caputo/caputo01.htm", "dicicco/dicicco00.htm", "mclane/mclane01.htm", "drake/drake01.htm", "melnichuk/melnichuk01.htm",
              "lamagni/lamagn00.htm", "open/lindsay/lindsay05.htm", "csuri/csuri01.htm", "open/locking/locking03.htm", "marchetti/marchetti01.htm"]
+
+
+def directors_choice(ctx):
     out = []
-    for p in picks:
+    for p in DC_PICKS:
         r = ctx["by_path"].get(p)
         if not r or not r.get("first_img"):
             continue
