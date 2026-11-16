@@ -22,6 +22,7 @@ OUR_HOSTS = {
     "museumofcomputerart.com", "www.museumofcomputerart.com",
 }
 PAGE_EXT = (".htm", ".html", ".asp", ".aspx", ".shtml")
+SERVER_SCRIPT_EXT = (".php", ".php3", ".cgi", ".pl", ".jsp")
 MEDIA_VIDEO = (".mov", ".avi", ".flv", ".wmv", ".mpg", ".mpeg", ".rm", ".mp4", ".m4v")
 MEDIA_AUDIO = (".mid", ".midi", ".wav", ".mp3", ".aif", ".aiff")
 INLINE_KEEP = {"b": "b", "strong": "b", "i": "i", "em": "i", "u": "u", "sup": "sup", "sub": "sub"}
@@ -152,6 +153,8 @@ def norm_internal(target, ctx):
             else:
                 return ("missing", "/" + path)
         return ("page", out + (("#" + frag) if frag else ""))
+    if path.endswith(SERVER_SCRIPT_EXT):
+        return ("missing", "/" + path)  # a server script (comments, forms): nothing can run it on the static site
     # directory link: look for an index page
     if trailing or "." not in posixpath.basename(path):
         for idx in ("index.htm", "index.html", "index.asp", "default.htm", "default.asp", "main.htm"):
