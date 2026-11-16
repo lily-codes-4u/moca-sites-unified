@@ -408,12 +408,23 @@ def link_dense(b):
     return a_text >= 0.5 * max(1, len(b["text"]))
 
 
+VIDEO_EXT = (".mov", ".avi", ".flv", ".wmv", ".mpg", ".mpeg", ".rm", ".m4v")
+
+
+def media_href(path, media_url):
+    """Where a link to an old media file goes. Links to old video files ("CLICK TO PLAY") open the
+    MP4 the media pipeline made, as the live sites do, instead of downloading a QuickTime file."""
+    if path.lower().endswith(VIDEO_EXT):
+        return media_url(path, "mp4")  # falls back to the original when there is no MP4
+    return media_url(path)
+
+
 def dead_links(h):
     return re.sub(r'<a href="([^"]*)" data-missing="1">(.*?)</a>', r'<span class="dead" title="This link pointed to a page that was not in the backups">\2</span>', h, flags=re.S)
 
 
 def fill_media(h, media_url):
-    return re.sub(r"\{\{MEDIA:([^}]*)\}\}", lambda m: E(media_url(html.unescape(m.group(1)))), h)
+    return re.sub(r"\{\{MEDIA:([^}]*)\}\}", lambda m: E(media_href(html.unescape(m.group(1)), media_url)), h)
 
 
 WEB_IMAGE = (".jpg", ".jpeg", ".gif", ".png", ".bmp", ".webp", ".svg", ".avif", ".ico")
@@ -461,7 +472,7 @@ def img_tag(path, media, media_url, alt, eager=False, sizes="(max-width: 700px) 
 def link_href(link, media_url):
     kind, target = link
     if kind == "media":
-        return media_url(target[1]), False
+        return media_href(target[1], media_url), False
     if kind == "missing":
         return None, False
     return target, kind == "external"
