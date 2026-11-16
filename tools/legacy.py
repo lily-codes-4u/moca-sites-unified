@@ -13,6 +13,8 @@ from urllib.parse import unquote, urlsplit
 
 from bs4 import BeautifulSoup, Comment, NavigableString, Tag
 
+import rebrand
+
 OUR_HOSTS = {
     "moca.virtual.museum", "www.moca.virtual.museum",
     "mocadigitalart.com", "www.mocadigitalart.com",
@@ -85,7 +87,7 @@ class Ctx:
         self.images = []
 
 
-LEGACY_HOMES = {"index.asp": "/legacy/moca-virtual-museum-home.html", "index.html": "/legacy/moca-virtual-museum-home-2022.html"}
+LEGACY_HOMES = {"index.asp": "/legacy/moca-home.html", "index.html": "/legacy/moca-home-2022.html"}
 AG_VIEW = re.compile(r"index_q_mode-view-image-(\d+)-returnpage-\d+\.html?$", re.I)
 
 
@@ -172,7 +174,7 @@ def page_url(path):
         path = path[:-5] + ".html"
     elif path.endswith(".asp"):
         path = path[:-4] + ".html"
-    return "/" + path
+    return rebrand.moved_path("/" + path)
 
 
 def seq_label(cur, target):

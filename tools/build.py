@@ -24,6 +24,7 @@ from urllib.parse import quote
 
 sys.path.insert(0, os.path.dirname(__file__))
 import legacy  # noqa: E402
+import rebrand  # noqa: E402
 import templates as T  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -136,8 +137,8 @@ def section_for(p):
 
 
 LEGACY_TITLES = {"index.htm": "mocadigitalart.com front page (as of 2024)",
-                 "index.asp": "moca.virtual.museum front page (as of 2024)",
-                 "index.html": "moca.virtual.museum front page (2022)"}
+                 "index.asp": "Original MOCA front page (as of 2024)",
+                 "index.html": "Original MOCA front page (2022)"}
 GENERIC_TITLE = re.compile(r"^(moca[:\s-]*)?(the )?(museum of computer art|moca|mocadigitalart|moca\.virtual\.museum|untitled( document)?|new page \d*|index|"
                            r"don archer digital art|digital art|computer art|home|\d{1,3}|this artist|enter your search terms.*|click (here|image).*|this page has not been fully populated)$", re.I)
 
@@ -207,6 +208,8 @@ def write(url, content):
         rel += "index.html"
     dest = os.path.join(OUT, rel)
     os.makedirs(os.path.dirname(dest), exist_ok=True)
+    if dest.endswith((".htm", ".html")):
+        content = rebrand.clean(content)  # no moca.virtual.museum name or addresses on the new site
     with open(dest, "w", encoding="utf-8") as f:
         f.write(content)
 
