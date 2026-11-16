@@ -210,7 +210,7 @@ def build_all(results, files, media, media_url, write, site_url):
             ag_years[y].append(r)
     ag_html = "".join(f'<div class="list"><h2>AutoGallery {y}</h2>' + "".join(f'<a href="{E(r["url"])}">{E(r["title"])}<span>{len(r["images"])} images</span></a>' for r in sorted(rs, key=lambda r: r["url"])) + "</div>"
                       for y, rs in sorted(ag_years.items(), reverse=True))
-    legacy_homes = "".join(f'<a href="{u}">{t}</a>' for u, t in (("/index.htm", "mocadigitalart.com front page (2024)"), ("/legacy/moca-home.html", "Original MOCA front page (2024)")))
+    legacy_homes = "".join(f'<a href="{u}">{t}</a><br>' for u, t in (("/index.htm", "mocadigitalart.com front page (2024)"), ("/legacy/moca-home.html", "Original MOCA front page (2024)")))
     body = (f'<div class="b prose"><p>Archives, indexes and catalogs from both former MOCA websites. For a list of absolutely every page, see the <a href="/directory/">directory</a>.</p>'
             f'<p class="links">{legacy_homes}<a href="/unlisted/">Unlisted files (shown on no page)</a></p></div>'
             f'<div class="cards">{"".join(card(p, used=arch_used) for p in arch)}</div>'
