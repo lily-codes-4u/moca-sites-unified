@@ -14,7 +14,8 @@ Both sit behind one free Cloudflare account, so everything is cached on Cloudfla
 
 1. Repo **Settings → Pages → Build and deployment → Source: GitHub Actions**.
 2. Every push to `main` that changes `site/` runs `.github/workflows/pages.yml` and publishes `site/`.
-3. `site/CNAME` already contains `museumofcomputerart.org`. After DNS (step 2) works, tick **Enforce HTTPS** on the Pages settings page.
+3. On the same page, type `museumofcomputerart.org` under **Custom domain** and press **Save**. Sites deployed by GitHub Actions ignore the `site/CNAME` file, so this step is required.
+4. After DNS (step 2) works and GitHub shows the DNS check as successful, tick **Enforce HTTPS**. The certificate can take up to an hour to appear.
 
 ## 2. Cloudflare DNS for museumofcomputerart.org
 
@@ -28,7 +29,7 @@ Add the domain to Cloudflare (free plan) and point the registrar's nameservers a
 | A | `@` | 185.199.111.153 | Proxied |
 | CNAME | `www` | `lily-codes-4u.github.io` | Proxied |
 
-SSL/TLS mode: **Full**. (While GitHub issues its certificate the first time, you may need to set the records to "DNS only" for a few minutes, then switch back to Proxied.)
+Create the records as **DNS only** (grey cloud) first, so GitHub can check the domain and issue its certificate. Delete any old records for `@` or `www` left over from the previous host. Once **Enforce HTTPS** is ticked on GitHub, switch the records to **Proxied** and set SSL/TLS mode to **Full (strict)**.
 
 ## 3. Cloudflare R2 for media
 
