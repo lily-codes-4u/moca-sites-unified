@@ -15,8 +15,8 @@
   function show() {
     var a = all[i % all.length];
     var img = lb.querySelector("img"), fig = a.closest("figure");
-    img.src = a.getAttribute("data-full") || a.href;
-    img.alt = (a.querySelector("img") || {}).alt || "";
+    if (window.mocaLightbox) window.mocaLightbox(a, img);
+    else { img.src = a.getAttribute("data-full") || a.href; img.alt = (a.querySelector("img") || {}).alt || ""; }
     lb.querySelector(".cap").textContent = (fig.querySelector("figcaption") || {}).textContent + "  (" + (i % all.length + 1) + " of " + all.length + ")";
     lb.querySelector(".orig").href = a.href;
     var next = all[(i + 1) % all.length]; if (next) { var pre = new Image(); pre.src = next.getAttribute("data-full"); }

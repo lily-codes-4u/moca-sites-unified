@@ -281,13 +281,16 @@ def build_unlisted(results, media, media_url, write, site_url):
         ps = sorted(groups[top])
         slug = re.sub(r"[^a-z0-9_\-]+", "-", top.lower()).strip("-") or "top"
         tiles, others = [], []
+        cls = T.wall_class(sum(1 for p in ps if media[p]["type"] == "image" and not T.is_deco({"src": p}, media)),
+                           sum(1 for p in ps if media[p]["type"] == "image"))
+        sizes = "(max-width: 640px) 50vw, 260px" if cls == "wall" else T.SIZES_BIG
         for p in ps:
             m = media[p]
             name = posixpath.basename(p)
             if m["type"] == "image":
                 full = T.view_url(p, media, media_url)
-                tiles.append(f'<figure class="art"><a class="zoom" href="{E(media_url(p))}" data-full="{E(full)}">'
-                             + T.img_tag(p, media, media_url, name, sizes="(max-width: 640px) 50vw, 260px")
+                tiles.append(f'<figure class="{T.fig_class({"src": p}, media)}"><a class="zoom" href="{E(media_url(p))}" data-full="{E(full)}">'
+                             + T.img_tag(p, media, media_url, name, sizes=sizes, tile=True)
                              + f'</a><figcaption>{E(p)}</figcaption></figure>')
             else:
                 kind = m["type"]
@@ -295,7 +298,7 @@ def build_unlisted(results, media, media_url, write, site_url):
                 others.append(f'<div><p class="note">{E(p)}</p>{T.media_block(b, media_url, media)}</div>')
         body = (f'<div class="b prose"><p>{len(ps)} files from the <b>{E(top)}</b> folder of the old servers that no page displayed. '
                 f'They are kept here so that every file from both sites can be seen.</p></div>'
-                + (f'<div class="wall">{"".join(tiles)}</div>' if tiles else "") + "".join(others))
+                + (f'<div class="{cls}">{"".join(tiles)}</div>' if tiles else "") + "".join(others))
         url = f"/unlisted/{slug}.html"
         write(url, T.page(title=f"Unlisted files: {top}", url=url, section=("Archive", "c3", "/archive.html"), body=body,
                           site_url=site_url, desc=f"Files from {top} on the old MOCA servers that no page displayed."))
