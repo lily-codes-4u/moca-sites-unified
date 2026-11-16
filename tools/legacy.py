@@ -21,6 +21,8 @@ OUR_HOSTS = {
     "museumofcomputerart.org", "www.museumofcomputerart.org",
     "museumofcomputerart.com", "www.museumofcomputerart.com",
 }
+# Spam links planted in old pages (not on the live sites): dropped with their link text.
+SPAM_HOSTS = {"francemaillotnba.com", "perfectreplica.to", "watchsourceguide.com"}
 PAGE_EXT = (".htm", ".html", ".asp", ".aspx", ".shtml")
 MEDIA_VIDEO = (".mov", ".avi", ".flv", ".wmv", ".mpg", ".mpeg", ".rm", ".mp4", ".m4v")
 MEDIA_AUDIO = (".mid", ".midi", ".wav", ".mp3", ".aif", ".aiff")
@@ -301,6 +303,10 @@ class Parser:
                 self.image(ch, link)
                 continue
             if name == "a":
+                host = (urlsplit((ch.get("href") or "").strip()).hostname or "").lower()
+                if host.removeprefix("www.") in SPAM_HOSTS:
+                    self.ctx.dropped.append(("spam-link", ch.get("href"), ch.get_text(" ", strip=True)[:80]))
+                    continue
                 lk = self.link_open(ch) if ch.get("href") else None
                 if ch.get("name") and not ch.get_text(strip=True) and not ch.find("img"):
                     self.buf.append(f'<span id="{html.escape(ch.get("name").lower())}"></span>')

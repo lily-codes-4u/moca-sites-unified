@@ -41,6 +41,8 @@ SERVER_SCRIPT = re.compile(
     r"logindatabase|send_mail|test_ms|test_my|test_mail|/test/|payform|submitthanks\.asp|_vti_|hostinger/|hostgator/)", re.I)
 JUNK = re.compile(r"(^|/)(_vti_cnf|_vti_pvt|_notes|smologin\d*|index (ionos|hostgator|hostinger|files)|donnie2006test)(/|$)|(^|/)[^/]* copy( \d+)?\.[a-z]+$|(^|/)[^/]* \d\.(asp|htm|html)$", re.I)
 DRAFT_EXT = re.compile(r"\.(htmx+|htmlx+|aspxx+|htmxxxx|htmm|assp|aspng)$")
+# Pages planted on the old server by spammers (replica-watch ads); not on either live site.
+SPAM_PAGES = re.compile(r"^adon/anim/(anim/)?1245\.(asp|html?)$")
 
 with open(MERGED_JSON) as f:
     FILES = json.load(f)
@@ -54,7 +56,18 @@ def exists(p):
     return p in FILES
 
 
+# Live copies of pages that the live sites (lily-codes-4u/moca and lily-codes-4u/mocadigitalart,
+# checked November 2026) changed after the 2024 backups: an artist credit added, image links
+# fixed, new entries in a listing. A file here, at the same lowercase path, replaces the backup
+# copy. Redesigned 2025-26 pages are kept as their <main> part only (no new site chrome).
+OVERRIDES = os.path.join(ROOT, "overrides")
+
+
 def read(p):
+    o = os.path.join(OVERRIDES, p)
+    if os.path.isfile(o):
+        with open(o, "rb") as f:
+            return f.read()
     if p not in FILES:
         return None
     with open(os.path.join(MERGED, p), "rb") as f:
@@ -96,6 +109,9 @@ def classify_pages(ags):
             continue
         if DRAFT_EXT.search(low):
             skipped.append((p, "unpublished draft copy (file name ends in xx/x)"))
+            continue
+        if SPAM_PAGES.search(low):
+            skipped.append((p, "spam page planted on the old server, not MOCA content"))
             continue
         if not low.endswith(legacy.PAGE_EXT):
             continue
