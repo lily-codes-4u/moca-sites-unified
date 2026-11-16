@@ -67,3 +67,9 @@ MOCA_MERGED=/path/to/merged MOCA_MERGED_JSON=/path/to/merged.json \
 MOCA_MEDIA_JSON=/path/to/media.json python3 tools/build.py
 ```
 `MOCA_MEDIA_BASE` changes where media is loaded from (default `https://media.museumofcomputerart.org`).
+
+## 6. The retired moca.virtual.museum name
+
+`tools/rebrand.py` removes the old name from every published page: old email addresses become `hello@museumofcomputerart.org`, links to the old domain become site links, and the old name in text and headings is replaced. `build.py` runs it on every page, and `python3 tools/rebrand.py` cleans an already built `site/` in place (`--check` only counts what is left). Pages that lived under `/imofday/moca.virtual.museum/` are now under `/imofday/archive/`, and `/legacy/moca-virtual-museum-home*.html` are now `/legacy/moca-home*.html`; `404.html` redirects the old addresses.
+
+Kept on purpose: the Cloudflare redirect rule above, the old domain in `OUR_HOSTS` in `tools/legacy.py`, Internet Archive links, the PayPal account address in donate forms, and media URLs. The R2 object keys under `imofday/moca.virtual.museum/` still use the old folder name; visitors never see them. Renaming them would mean changing the keys in `media-map-originals.tsv` and the variant folder, then running `upload_r2.py` again.

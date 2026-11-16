@@ -58,9 +58,9 @@ FOOTER = """<footer class="foot"><div class="wrap">
     <div><a class="logo" href="/"><i aria-hidden="true"></i>MOCA</a><p>Museum of Computer Art. Digital fine art since 1993. No charge to viewers or artists, no advertising.</p></div>
     <div><h2>Visit</h2><a href="/collection.html">Collection</a><a href="/ai.html">AI Art</a><a href="/donnie.html">The Donnie</a><a href="/artists.html">Artists</a><a href="/grandmasters.htm">Grandmasters</a></div>
     <div><h2>Archive</h2><a href="/archive.html">Everything archived</a><a href="/catalogs.htm">All catalogs</a><a href="/autogalleryarchive.htm">AutoGallery archive</a><a href="/editorial/editorial.htm">Reviews &amp; essays</a></div>
-    <div><h2>Museum</h2><a href="/about.htm">About MOCA</a><a href="/submit.html">Submit your art</a><a href="/donate.htm">Donate</a><a href="mailto:don@moca.virtual.museum">don@moca.virtual.museum</a></div>
+    <div><h2>Museum</h2><a href="/about.htm">About MOCA</a><a href="/submit.html">Submit your art</a><a href="/donate.htm">Donate</a><a href="mailto:hello@museumofcomputerart.org">hello@museumofcomputerart.org</a></div>
   </div>
-  <p class="fine">© 1993–2026 Museum of Computer Art, a 501(c)(3) nonprofit. Images remain the property of the artists. Formerly moca.virtual.museum and mocadigitalart.com.</p>
+  <p class="fine">© 1993–2026 Museum of Computer Art, a 501(c)(3) nonprofit. Images remain the property of the artists.</p>
 </div></footer>
 <dialog id="lb" aria-label="Image viewer"><button class="x" aria-label="Close">×</button><img alt=""><p class="cap"></p><a class="orig" href="#" target="_blank" rel="noopener">Open original file</a></dialog>
 <dialog id="sd" aria-label="Search"><form method="dialog" class="sbox"><input id="q" type="search" placeholder="Search artists, exhibits, titles…" autocomplete="off" aria-label="Search"><button class="x" aria-label="Close">×</button></form><ol id="res"></ol></dialog>
@@ -353,7 +353,7 @@ def render_text(b, media_url, media):
                 f'<button class="btn" type="submit">Donate with PayPal</button></form>')
     if t == "form-retired":
         return ('<p class="note">This page once had an online form that ran on the old server. '
-                'Please email <a href="mailto:don@moca.virtual.museum">don@moca.virtual.museum</a> instead.</p>')
+                'Please email <a href="mailto:hello@museumofcomputerart.org">hello@museumofcomputerart.org</a> instead.</p>')
     if t == "img":
         return figure(b, media_url, media) if ((b.get("src") and not (media.get(b["src"]) or {}).get("error")) or b.get("ext")) else ""
     if t in ("media", "embed"):
@@ -404,7 +404,8 @@ def write_assets(out, root):
 def write_meta(out, pages, site_url, write):
     # search index: title, url, section (loaded only when someone opens search)
     dup = lambda p: p["url"].startswith("/donnie(s)/")  # mirror of the /donnieYYYY/ folders
-    idx = [[p["title"], p["url"], p["section"]] for p in pages if p.get("title") and not dup(p)]
+    import rebrand
+    idx = [[rebrand.clean(p["title"]), p["url"], p["section"]] for p in pages if p.get("title") and not dup(p)]
     with open(os.path.join(out, "search.json"), "w") as f:
         json.dump(idx, f, separators=(",", ":"))
     urls = sorted({p["url"].split("#")[0] for p in pages if not dup(p)})

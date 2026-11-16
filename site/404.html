@@ -23,22 +23,23 @@
 </div></header>
 <main id="main" class="wrap">
 <div class="phead b c2"><h1>Page not found</h1></div>
-<div class="b prose" id="nf"><h2>Looking for something from the old MOCA sites?</h2><p>We could not find that page. Everything from moca.virtual.museum and mocadigitalart.com now lives here. Try the <a href="/directory/">directory of every page</a>, the <a href="/artists.html">artist list</a>, or search (press /).</p></div>
+<div class="b prose" id="nf"><h2>Looking for something from the old MOCA sites?</h2><p>We could not find that page. Everything from the old MOCA websites now lives here. Try the <a href="/directory/">directory of every page</a>, the <a href="/artists.html">artist list</a>, or search (press /).</p></div>
 </main>
 <footer class="foot"><div class="wrap">
   <div class="fcols">
     <div><a class="logo" href="/"><i aria-hidden="true"></i>MOCA</a><p>Museum of Computer Art. Digital fine art since 1993. No charge to viewers or artists, no advertising.</p></div>
     <div><h2>Visit</h2><a href="/collection.html">Collection</a><a href="/ai.html">AI Art</a><a href="/donnie.html">The Donnie</a><a href="/artists.html">Artists</a><a href="/grandmasters.htm">Grandmasters</a></div>
     <div><h2>Archive</h2><a href="/archive.html">Everything archived</a><a href="/catalogs.htm">All catalogs</a><a href="/autogalleryarchive.htm">AutoGallery archive</a><a href="/editorial/editorial.htm">Reviews &amp; essays</a></div>
-    <div><h2>Museum</h2><a href="/about.htm">About MOCA</a><a href="/submit.html">Submit your art</a><a href="/donate.htm">Donate</a><a href="mailto:don@moca.virtual.museum">don@moca.virtual.museum</a></div>
+    <div><h2>Museum</h2><a href="/about.htm">About MOCA</a><a href="/submit.html">Submit your art</a><a href="/donate.htm">Donate</a><a href="mailto:hello@museumofcomputerart.org">hello@museumofcomputerart.org</a></div>
   </div>
-  <p class="fine">© 1993–2026 Museum of Computer Art, a 501(c)(3) nonprofit. Images remain the property of the artists. Formerly moca.virtual.museum and mocadigitalart.com.</p>
+  <p class="fine">© 1993–2026 Museum of Computer Art, a 501(c)(3) nonprofit. Images remain the property of the artists.</p>
 </div></footer>
 <dialog id="lb" aria-label="Image viewer"><button class="x" aria-label="Close">×</button><img alt=""><p class="cap"></p><a class="orig" href="#" target="_blank" rel="noopener">Open original file</a></dialog>
 <dialog id="sd" aria-label="Search"><form method="dialog" class="sbox"><input id="q" type="search" placeholder="Search artists, exhibits, titles…" autocomplete="off" aria-label="Search"><button class="x" aria-label="Close">×</button></form><ol id="res"></ol></dialog>
 <script>(function(){var p=location.pathname,q=location.search,h=location.hash;var l=decodeURIComponent(p).toLowerCase();
 var m=l.match(/^(.*)\/index_q_mode-view-image-(\d+)-returnpage-\d+\.html?$/);if(m){location.replace(m[1]+"/#image-"+m[2]);return}
 var c=[];if(l!==decodeURIComponent(p))c.push(l);
+var mv=[["/imofday/moca.virtual.museum/","/imofday/archive/"],["/legacy/moca-virtual-museum-home","/legacy/moca-home"]];for(var k=0;k<mv.length;k++)if(l.indexOf(mv[k][0])===0){location.replace(mv[k][1]+l.slice(mv[k][0].length)+q+h);return}
 if(/\.aspx?$/.test(l))c.push(l.replace(/\.aspx?$/,".html"));
 if(/\.html$/.test(l)){c.push(l.replace(/\.html$/,".htm"))}else if(/\.htm$/.test(l)){c.push(l.replace(/\.htm$/,".html"))}
 if(/\/index\.(asp|html?)$/.test(l))c.push(l.replace(/index\.(asp|html?)$/,""));

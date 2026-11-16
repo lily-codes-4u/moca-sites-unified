@@ -154,7 +154,7 @@ def build_all(results, files, media, media_url, write, site_url):
         dir_links.append(f'<a href="/directory/{slug}.html">{E(top)}<span>{len(rs)}</span></a>')
     third = (len(dir_links) + 2) // 3
     cols = "".join(f'<div class="list">{"".join(dir_links[i:i + third])}</div>' for i in range(0, len(dir_links), third))
-    body = (f'<div class="b prose"><p>Every one of the {len(results):,} pages from moca.virtual.museum and mocadigitalart.com, grouped by the folder it lived in on the old sites. Files that no page showed are in <a href="/unlisted/">Unlisted files</a>.</p></div>'
+    body = (f'<div class="b prose"><p>Every one of the {len(results):,} pages from the old MOCA websites, grouped by the folder it lived in on the old sites. Files that no page showed are in <a href="/unlisted/">Unlisted files</a>.</p></div>'
             f'<div class="cols">{cols}</div>')
     write("/directory/", T.page(title="Directory of every page", url="/directory/", section=("Archive", "c3", "/archive.html"), body=body, site_url=site_url))
 
@@ -168,7 +168,7 @@ def build_all(results, files, media, media_url, write, site_url):
             ag_years[y].append(r)
     ag_html = "".join(f'<div class="list"><h2>AutoGallery {y}</h2>' + "".join(f'<a href="{E(r["url"])}">{E(r["title"])}<span>{len(r["images"])} images</span></a>' for r in sorted(rs, key=lambda r: r["url"])) + "</div>"
                       for y, rs in sorted(ag_years.items(), reverse=True))
-    legacy_homes = "".join(f'<a href="{u}">{t}</a>' for u, t in (("/index.htm", "mocadigitalart.com front page (2024)"), ("/legacy/moca-virtual-museum-home.html", "moca.virtual.museum front page (2024)")))
+    legacy_homes = "".join(f'<a href="{u}">{t}</a>' for u, t in (("/index.htm", "mocadigitalart.com front page (2024)"), ("/legacy/moca-home.html", "Original MOCA front page (2024)")))
     body = (f'<div class="b prose"><p>Archives, indexes and catalogs from both former MOCA websites. For a list of absolutely every page, see the <a href="/directory/">directory</a>.</p>'
             f'<p class="links">{legacy_homes}<a href="/unlisted/">Unlisted files (shown on no page)</a></p></div>'
             f'<div class="cards">{"".join(card(p) for p in arch)}</div>'
@@ -179,7 +179,7 @@ def build_all(results, files, media, media_url, write, site_url):
     body = ('<div class="b prose"><h2>Show your art at MOCA</h2><p>MOCA has never charged artists or viewers. '
             'The old upload forms ran on the previous web server and are retired. To submit work for the AutoGallery, the Open Gallery or the Donnie, '
             'email up to 10 images (JPEG, longest side about 1600 pixels) with your name, titles and a short statement to '
-            '<a href="mailto:don@moca.virtual.museum?subject=Art%20submission">don@moca.virtual.museum</a>.</p>'
+            '<a href="mailto:hello@museumofcomputerart.org?subject=Art%20submission">hello@museumofcomputerart.org</a>.</p>'
             '<p><a href="/autogallerysubmit.html">The previous submission guidelines</a> are kept for reference.</p></div>')
     hub("/submit.html", "Submit your art", body, "c3", "How to show your digital art at MOCA, free.")
 
@@ -307,12 +307,13 @@ def build_404(write, results, files, site_url):
     .asp links, old AutoGallery image links and the old domains' paths."""
     known = sorted({r["url"].split("#")[0] for r in results})
     body = ('<div class="b prose" id="nf"><h2>Looking for something from the old MOCA sites?</h2>'
-            '<p>We could not find that page. Everything from moca.virtual.museum and mocadigitalart.com now lives here. '
+            '<p>We could not find that page. Everything from the old MOCA websites now lives here. '
             'Try the <a href="/directory/">directory of every page</a>, the <a href="/artists.html">artist list</a>, or search (press /).</p></div>')
     page = T.page(title="Page not found", url="/404.html", section=("Home", "c2", "/"), body=body, site_url=site_url, crumb=False)
     js = r"""<script>(function(){var p=location.pathname,q=location.search,h=location.hash;var l=decodeURIComponent(p).toLowerCase();
 var m=l.match(/^(.*)\/index_q_mode-view-image-(\d+)-returnpage-\d+\.html?$/);if(m){location.replace(m[1]+"/#image-"+m[2]);return}
 var c=[];if(l!==decodeURIComponent(p))c.push(l);
+var mv=[["/imofday/moca.virtual.museum/","/imofday/archive/"],["/legacy/moca-virtual-museum-home","/legacy/moca-home"]];for(var k=0;k<mv.length;k++)if(l.indexOf(mv[k][0])===0){location.replace(mv[k][1]+l.slice(mv[k][0].length)+q+h);return}
 if(/\.aspx?$/.test(l))c.push(l.replace(/\.aspx?$/,".html"));
 if(/\.html$/.test(l)){c.push(l.replace(/\.html$/,".htm"))}else if(/\.htm$/.test(l)){c.push(l.replace(/\.htm$/,".html"))}
 if(/\/index\.(asp|html?)$/.test(l))c.push(l.replace(/index\.(asp|html?)$/,""));
