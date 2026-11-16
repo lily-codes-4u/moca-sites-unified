@@ -254,7 +254,7 @@ def build_unlisted(results, media, media_url, write, site_url):
             m = media[p]
             name = posixpath.basename(p)
             if m["type"] == "image":
-                full = media_url(p, "1600") if (m.get("variants") or {}).get("1600") and not m.get("animated") else media_url(p)
+                full = T.view_url(p, media, media_url)
                 tiles.append(f'<figure class="art"><a class="zoom" href="{E(media_url(p))}" data-full="{E(full)}">'
                              + T.img_tag(p, media, media_url, name, sizes="(max-width: 640px) 50vw, 260px")
                              + f'</a><figcaption>{E(p)}</figcaption></figure>')
