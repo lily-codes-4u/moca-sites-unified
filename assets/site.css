@@ -46,6 +46,7 @@ a{color:inherit;text-decoration:none}
 .prose p.links{max-width:none;columns:3 16em;column-gap:28px}
 .prose p.links br{display:block}
 .prose hr,.info hr{border:0;border-top:1.5px solid var(--line);margin:1.2em 0}
+.prose.roomy{line-height:1.85}.prose.roomy p{margin-bottom:1.5em}.prose.roomy hr{margin:1.8em 0}
 .dead{color:var(--muted)}
 .note{color:var(--muted);font-size:15px}
 /* artwork pages */

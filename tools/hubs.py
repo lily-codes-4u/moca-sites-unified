@@ -27,6 +27,8 @@ GALLERIES = [
     ("Surreal", "newmoca/surreal.htm"), ("Video & Audio", "newmoca/newmediamain.asp"), ("Projects", "newmoca/projects.htm"),
     ("Guest Gallery", "newmoca/guestgallery.htm"), ("Open Gallery", "open/opengallery.htm"),
 ]
+# Old front pages: following their links leads everywhere, so card pictures are never borrowed through them.
+HOME_URLS = {"/", "/index.htm", "/index.html", "/legacy/moca-home.html", "/legacy/moca-home2.html"}
 POLICY = ["No charge to viewers.", "No charge to artists.", "No advertising.", "No Facebook or Meta.", "No Twitter or X."]
 
 
@@ -41,17 +43,54 @@ def build_all(results, files, media, media_url, write, site_url):
         r = by_path.get(p)
         return r["url"] if r else None
 
-    def card(p, title=None, sub=None):
+    # Pictures used on many pages are site furniture (logos, banners, contest headers), not artwork.
+    uses = defaultdict(int)
+    for r in results:
+        for im in set(r.get("images") or []):
+            uses[im] += 1
+
+    def good_thumb(im):
+        m = media.get(im) or {}
+        if not im or m.get("error") or T.LOGOISH(im, media) or uses[im] >= 12:
+            return False
+        w, h = m.get("w") or 0, m.get("h") or 0
+        return not (w and h and (min(w, h) < 160 or not 0.45 <= w / h <= 2.2))
+
+    def thumb(r, used):
+        """The card picture: the page's own first artwork, else the first artwork found by following
+        its links up to three steps away, first within the page's own folder, then anywhere (never
+        through the old front pages), avoiding pictures already shown on the same hub."""
+        top = r["url"].split("/")[1]
+        fallback = None
+        for same_folder in (True, False):
+            seen, level = {r["url"]}, [r]
+            for _ in range(3):
+                nxt = []
+                for x in level:
+                    for im in [x.get("first_img")] + list(x.get("images") or []):
+                        if good_thumb(im):
+                            if im not in used:
+                                return im
+                            fallback = fallback or im
+                    for kind, v in x.get("links", []):
+                        u = v.split("#")[0] if kind == "page" else ""
+                        if u in HOME_URLS or u in seen or (same_folder and u.split("/")[1:2] != [top]):
+                            continue
+                        t = by_url.get(u)
+                        if t and len(nxt) < 80:
+                            seen.add(u)
+                            nxt.append(t)
+                level = nxt
+        return fallback
+
+    def card(p, title=None, sub=None, used=None):
         r = by_path.get(p) or by_url.get("/" + p if p.endswith("/") else "")
         if not r:
             return ""
-        img = r.get("first_img")
-        if not img:  # index pages: borrow the first artwork from the pages they link to
-            for kind, v in r.get("links", []):
-                t = by_url.get(v.split("#")[0]) if kind == "page" else None
-                if t and t.get("first_img"):
-                    img = t["first_img"]
-                    break
+        used = set() if used is None else used
+        img = thumb(r, used)
+        if img:
+            used.add(img)
         pic = (T.img_tag(img, media, media_url, "", sizes="(max-width:640px) 50vw, 220px") if img else
                f'<span class="ph" aria-hidden="true">{E((title or r["title"])[:1])}</span>')
         if img:
@@ -64,6 +103,7 @@ def build_all(results, files, media, media_url, write, site_url):
         write(url, page)
 
     # ---------------------------------------------------------- Donnie
+    dn_used = set()
     years = sorted({int(m.group(1)) for p in files for m in [re.match(r"donnie(\d{4})/", p)] if m}, reverse=True)
     dn_cards, dn_list = [], []
     for y in years:
@@ -71,7 +111,7 @@ def build_all(results, files, media, media_url, write, site_url):
         main = next((p for p in (f"donnie{y}/main.htm", f"donnie{y}/winners.htm", f"donnie{y}/winners{y}.htm", f"donnie{y}/exhibitpages/exhibitindex.htm", f"donnie{y}/catalog{y}.htm") if p in by_path), pages[0] if pages else None)
         if not main:
             continue
-        dn_cards.append(card(main, f"The Donnie {y}", f"{sum(1 for r in by_path if r.startswith(f'donnie{y}/'))} pages"))
+        dn_cards.append(card(main, f"The Donnie {y}", f"{sum(1 for r in by_path if r.startswith(f'donnie{y}/'))} pages", dn_used))
         links = "".join(f'<a href="{E(by_path[p]["url"])}">{E(by_path[p]["title"])}<span>{E(posixpath.basename(p))}</span></a>' for p in pages)
         ex = f"donnie{y}/exhibitpages/exhibitindex.htm"
         if ex in by_path and ex not in pages:
@@ -102,10 +142,11 @@ def build_all(results, files, media, media_url, write, site_url):
     hub("/ai.html", "AI Art", body, "c5", "Don Archer's AI art collections, portraits and exhibits.", "/ai.html")
 
     # ---------------------------------------------------------- Collection
-    body = '<div class="cards">' + "".join(card(p, t, "Gallery") for t, p in GALLERIES) + "</div>"
-    body += '<h2 class="sec">Grandmasters</h2><div class="cards">' + "".join(card(p if not p.endswith("/") else p, n, "Grandmaster") for n, p in GRANDMASTERS) + "</div>"
+    used = set()
+    body = '<div class="cards">' + "".join(card(p, t, "Gallery", used) for t, p in GALLERIES) + "</div>"
+    body += '<h2 class="sec">Grandmasters</h2><div class="cards">' + "".join(card(p, n, "Grandmaster", used) for n, p in GRANDMASTERS) + "</div>"
     body += ('<h2 class="sec">Also in the collection</h2><div class="cards">'
-             + "".join(card(p) for p in ("autogalleryarchive.htm", "grandmasters.htm", "mocanet/mocalist.htm", "editorial/editorial.htm", "adon/abase.asp", "digivid/brown_valleys.htm") if p in by_path)
+             + "".join(card(p, used=used) for p in ("autogalleryarchive.htm", "grandmasters.htm", "mocanet/mocalist.htm", "editorial/editorial.htm", "adon/abase.asp", "digivid/brown_valleys.htm") if p in by_path)
              + "</div>")
     hub("/collection.html", "The collection", body, "c1", "Browse MOCA's galleries: photo-based, drawn, 3D, fractal, mixed, surreal, video and more.", "/collection.html")
 
@@ -158,6 +199,7 @@ def build_all(results, files, media, media_url, write, site_url):
             f'<div class="cols">{cols}</div>')
     write("/directory/", T.page(title="Directory of every page", url="/directory/", section=("Archive", "c3", "/archive.html"), body=body, site_url=site_url))
 
+    arch_used = set()
     arch = [p for p in ("autogalleryarchive.htm", "donniearchive.htm", "catalogs.htm", "imageofthedayindex.htm", "imageofthedayindexai.htm",
                         "editorial/editorial.htm", "mocanet/mocalist.htm", "grandmasters.htm", "aiexhibits.htm", "adon/abase.asp") if p in by_path]
     ag = sorted({r["url"] for r in results if r.get("autogallery")})
@@ -171,7 +213,7 @@ def build_all(results, files, media, media_url, write, site_url):
     legacy_homes = "".join(f'<a href="{u}">{t}</a>' for u, t in (("/index.htm", "mocadigitalart.com front page (2024)"), ("/legacy/moca-home.html", "Original MOCA front page (2024)")))
     body = (f'<div class="b prose"><p>Archives, indexes and catalogs from both former MOCA websites. For a list of absolutely every page, see the <a href="/directory/">directory</a>.</p>'
             f'<p class="links">{legacy_homes}<a href="/unlisted/">Unlisted files (shown on no page)</a></p></div>'
-            f'<div class="cards">{"".join(card(p) for p in arch)}</div>'
+            f'<div class="cards">{"".join(card(p, used=arch_used) for p in arch)}</div>'
             f'<h2 class="sec">AutoGallery, {len(ag)} galleries</h2><div class="cols">{ag_html}</div>')
     hub("/archive.html", "Archive", body, "c3", "MOCA archives: AutoGallery, the Donnie, catalogs, images of the day, editorial.", "/archive.html")
 
@@ -270,7 +312,8 @@ def build_home(ctx, write, years, card):
   <div class="b about"><div style="flex:1;min-width:0"><span class="k" style="color:var(--muted)">About</span><p style="margin-top:6px">A 501(c)(3) nonprofit founded by Don Archer and Bob Dodson, chartered by the NYS Department of Education.</p></div><a href="/about.htm" style="font-weight:700;white-space:nowrap">Our story →</a></div>
   <div class="b pol">{pol}</div>
 </div>"""
-    galleries = '<h2 class="sec" id="collection">Browse the collection</h2><div class="cards">' + "".join(card(p, t, "Gallery") for t, p in GALLERIES) + "</div>"
+    used = set()
+    galleries = '<h2 class="sec" id="collection">Browse the collection</h2><div class="cards">' + "".join(card(p, t, "Gallery", used) for t, p in GALLERIES) + "</div>"
     dc = directors_choice(ctx)
     dc_html = ('<h2 class="sec">Director\'s choice</h2><div class="cards">' + "".join(dc) + "</div>") if dc else ""
     lists = ('<h2 class="sec">Contests, artists and archives</h2><div class="cols">'
