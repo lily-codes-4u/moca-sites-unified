@@ -130,7 +130,7 @@ SECTION_RULES = [
     (r"^(digivid|newmedia)/", lambda m: ("Video & new media", "c2", "/newmoca/newmediamain.html")),
     (r"^(imagesoftheday|imageoftheday|imofday)", lambda m: ("Images of the Day", "c3", "/archive.html")),
     (r"^(da\d|blurb|catalog)", lambda m: ("Catalogs", "c3", "/catalogs.htm")),
-    (r"^[^/]+\.(htm|html|asp)$", lambda m: ("Museum", "c1", "/")),
+    (r"^[^/]+\.(htm|html|asp)$", lambda m: ("Museum", "c1", "/about.htm")),
 ]
 
 
@@ -150,27 +150,42 @@ GENERIC_TITLE = re.compile(r"^(moca[:\s-]*)?(the )?(museum of computer art|moca|
                            r"don archer digital art|digital art|computer art|home|\d{1,3}|this artist|enter your search terms.*|click (here|image).*|this page has not been fully populated)$", re.I)
 
 
+def generic(t):
+    """A title candidate that names nothing: the museum's own name, placeholders, widget text."""
+    return bool(GENERIC_TITLE.match(t)) or T.junk_title(t)
+
+
+def stem_title(p):
+    stem = posixpath.splitext(posixpath.basename(p))[0]
+    return re.sub(r"[_\-]+", " ", stem).strip().title() or "MOCA"
+
+
 def pick_title(parsed, p):
     t = parsed["title"].strip()
     t = re.sub(r"^(MOCA|mocadigitalart)\s*[:|\-]\s*", "", t, flags=re.I).strip()
-    if t and not GENERIC_TITLE.match(t) and len(t) < 120:
+    if t and not generic(t) and len(t) < 120:
         return t
     for b in parsed["blocks"]:
-        if b["t"] == "h" and 2 < len(b["text"]) < 100:
+        if b["t"] == "h" and 2 < len(b["text"]) < 100 and not T.junk_title(b["text"]):
             return b["text"]
     for b in parsed["blocks"]:
         if b["t"] == "p" and b["text"] and not b["html"].count("<a "):
             lines = [re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", "", x))).strip() for x in re.split(r"<br>", b["html"])]
-            lines = [x for x in lines if x and not GENERIC_TITLE.match(x)]
+            lines = [x for x in lines if x and not generic(x)]
             if lines and all(len(x) < 70 for x in lines[:3]):
                 t = " · ".join(lines[:3])
                 if len(t) < 110:
                     return t
     for b in parsed["blocks"]:
-        if b["t"] == "p" and 2 < len(b["text"]) < 90 and not GENERIC_TITLE.match(b["text"]) and "home" not in b["text"].lower():
+        if b["t"] == "p" and 2 < len(b["text"]) < 90 and not generic(b["text"]) and "home" not in b["text"].lower():
             return b["text"]
-    stem = posixpath.splitext(posixpath.basename(p))[0]
-    return re.sub(r"[_\-]+", " ", stem).strip().title() or "MOCA"
+    return stem_title(p)
+
+
+# Spelling slips in MOCA's own museum pages (never in artists' or essayists' text).
+INSTITUTIONAL_TYPOS = {"donate.htm": [("operated continuosly", "operated continuously"),
+                                      ("Please make tax-deductible donation", "Please make a tax-deductible donation")],
+                       "mocaform.htm": [("MOCA network of distinguised art sites", "MOCA network of distinguished art sites")]}
 
 
 # ---------------------------------------------------------------- page build
@@ -193,16 +208,22 @@ def build_page(p, ags):
     section = section_for(p)
     url = legacy.page_url(p)
     body, first_img, lead = T.render_blocks(parsed["blocks"], media_url, MEDIA)
-    if lead and 3 < len(lead) < 90 and lead.lower() not in title.lower() and not GENERIC_TITLE.match(lead):
+    if lead and 3 < len(lead) < 90 and lead.lower() not in title.lower() and not generic(lead):
         title = lead if title.lower() in lead.lower() else (f"{lead} · {title}" if len(title) < 40 else lead)
+    elif lead and 90 <= len(lead) < 160 and title == stem_title(p) and not generic(lead):
+        title = lead  # nothing better than the file name was found: a long caption beats "Rankovic06"
     title = LEGACY_TITLES.get(p, title)
     title = re.sub(r"\s*[\u2014|-]+\s*MOCA: Museum of Computer Art\s*$", "", title).strip() or title
-    if len(title) > 90:
-        title = title[:87].rsplit(" ", 1)[0].rstrip(" ·,:;-") + "…"
+    title = T.shorten_title(T.tidy_title(title), artwork='<div class="artwork">' in body)
+    body = T.drop_title_echo(body, title)
+    for old, new in INSTITUTIONAL_TYPOS.get(p, []):
+        body = body.replace(old, new)
     body = T.name_alts(body, title)
     if p in ROOMY:
         body = body.replace('class="b prose"', 'class="b prose roomy"')
     desc = parsed["desc"] or next((b["text"] for b in parsed["blocks"] if b["t"] == "p" and len(b["text"]) > 60), "")
+    for old, new in INSTITUTIONAL_TYPOS.get(p, []):
+        desc = desc.replace(old, new)
     page_html = T.page(title=title, url=url, section=section, body=body, desc=desc,
                        og_image=media_url(first_img, "1600") if first_img else None, site_url=SITE_URL)
     write(url, page_html)
@@ -245,13 +266,14 @@ def build_autogallery(folder, index_path):
     header = legacy.parse("<body>" + cfg.get("PageHeader", "") + "</body>", ctx)
     message = legacy.parse("<body>" + cfg.get("PageMessage", "") + "</body>", ctx)
     title = re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", cfg.get("PageTitle", "")))).strip()
-    if not title or GENERIC_TITLE.match(title) or len(title) < 3:
-        hb = next((b["text"] for b in message["blocks"] + header["blocks"] if b.get("text") and not GENERIC_TITLE.match(b["text"].split(" · ")[0])
+    if not title or generic(title) or len(title) < 3:
+        hb = next((b["text"] for b in message["blocks"] + header["blocks"] if b.get("text") and not generic(b["text"].split(" · ")[0])
                    and not re.search(r"moca|autogallery|submit|home", b["text"], re.I)), "")
         title = (hb.split("  ")[0][:80] if hb else "") or folder.split("/")[-1].replace("autogallery_", "").replace("_", " ").title()
+    title = T.shorten_title(T.tidy_title(title))
     section = section_for(folder + "/")
     url = "/" + folder + "/"
-    body = T.render_autogallery(items, header["blocks"], message["blocks"], cfg, media_url, MEDIA, title)
+    body = T.drop_title_echo(T.render_autogallery(items, header["blocks"], message["blocks"], cfg, media_url, MEDIA, title), title)
     page_html = T.page(title=title, url=url, section=section, body=body,
                        desc=f"{title}: {len(items)} images in the MOCA AutoGallery.",
                        og_image=media_url(items[0]["src"], "1600") if items else None, site_url=SITE_URL,

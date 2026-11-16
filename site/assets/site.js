@@ -10,14 +10,26 @@
 
   // ---- image viewer
   var lb = $("#lb");
+  // Put a.zoom's picture in the viewer. data-full is the 1600px WebP; when the original file is
+  // wider than that, offer it too, so large screens get the full-resolution artwork.
+  function lbSet(a, img) {
+    var t = a.querySelector("img") || {}, W = +(t.getAttribute && t.getAttribute("width")) || 0, H = +(t.getAttribute && t.getAttribute("height")) || 0;
+    var full = a.getAttribute("data-full") || a.href;
+    img.removeAttribute("srcset"); img.removeAttribute("sizes"); img.removeAttribute("src");
+    if (W > 1600 && H && full !== a.href && /\.(jpe?g|png|webp)$/i.test(a.href.split("?")[0])) {
+      img.sizes = Math.round(Math.min(W, innerWidth * .94, innerHeight * .84 * W / H)) + "px";
+      img.srcset = full + " 1600w, " + a.href + " " + W + "w";
+    }
+    img.src = full;
+    img.alt = t.alt || "";
+  }
+  window.mocaLightbox = lbSet;
   d.addEventListener("click", function (e) {
     var a = e.target.closest && e.target.closest("a.zoom");
     if (!a || !lb || !lb.showModal || e.metaKey || e.ctrlKey || e.shiftKey) return;
     e.preventDefault();
     var img = $("img", lb), fig = a.closest("figure"), cap = fig && $("figcaption", fig);
-    img.removeAttribute("src");
-    img.src = a.getAttribute("data-full") || a.href;
-    img.alt = (a.querySelector("img") || {}).alt || "";
+    lbSet(a, img);
     $(".cap", lb).textContent = cap ? cap.textContent : "";
     $(".orig", lb).href = a.href;
     lb.showModal();
