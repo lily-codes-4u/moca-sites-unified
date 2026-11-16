@@ -1,10 +1,14 @@
 """HTML templates for the unified MOCA site (Bento design, prototype 3)."""
+import difflib
 import hashlib
 import html
 import json
 import os
 import re
 import shutil
+import time
+from collections import Counter
+from urllib.parse import quote, unquote
 
 E = html.escape
 NAV = [("/collection.html", "Collection"), ("/ai.html", "AI Art"), ("/donnie.html", "The Donnie"),
@@ -18,26 +22,133 @@ def asset(path):
     return path + ("?v=" + ASSET_VER[path] if path in ASSET_VER else "")
 
 
-def head(title, url, desc, og_image, site_url, extra=""):
-    canon = site_url + url.split("#")[0]
+SITE_NAME = "Museum of Computer Art"
+DEFAULT_DESC = "Museum of Computer Art: digital fine art since 1993."
+OG_DEFAULT = "/og-image.png"
+# Pages that stay reachable but are kept out of search results: the error page, snapshots of
+# the old front pages, and the "files no page showed" listings.
+NOINDEX = re.compile(r"^/(404\.html|index\.htm|legacy/|unlisted/)")
+URL_SAFE = "/~()&+,;=:@!$'*-._"
+
+
+def canonical_path(url):
+    """Site path -> the one URL a page is known by: no fragment, folder index pages as the folder,
+    unsafe characters (spaces) percent-encoded."""
+    u = url.split("#")[0]
+    if u.endswith("/index.html"):
+        u = u[:-len("index.html")]
+    return quote(unquote(u), safe=URL_SAFE)
+
+
+def _plain(h):
+    t = re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", h or ""))).strip()
+    return re.sub(r" ([,.;:!?)])", r"\1", t)
+
+
+def _norm(t):
+    return re.sub(r"[^a-z0-9]+", "", t.lower())
+
+
+def _boilerplate(t, title):
+    low, n = t.lower().strip(" ."), _norm(t)
+    if len(n) < 4 or n in _norm(title) or n in ("museumofcomputerart", "mocamuseumofcomputerart") or low.startswith(DEFAULT_DESC.lower().rstrip(".")):
+        return True
+    if re.search(r"(computer|digital) art museum,\s+works by", low):
+        return True
+    if re.fullmatch(r"(moca\W*)?(museum of computer art\W*)?(the )?donnie( \d{4})?\W*", low):
+        return True
+    if "{{" in t or re.search(r"https?://|www\.|\bclick\b|\.(jpe?g|gif|png)\b|^(next|previous|prev|back|return|go to|visit|see)\b|moca home", low):
+        return True
+    segs = [s for s in t.split(",") if s.strip()]
+    return (len(segs) >= 4 and not re.search(r"[.:]| and ", t.rstrip(".")) and sum(map(len, segs)) / len(segs) < 25)  # keyword list
+
+
+def _clip(t, n=160):
+    if len(t) <= n:
+        return t
+    return t[:n - 2].rsplit(" ", 1)[0].rstrip(" ,;:·-–—(") + "…"
+
+
+def describe(title, given, body, section=""):
+    """Meta description, 70-160 characters, from the page's own words: its old description if
+    that was real text, else its first paragraph, else a sentence built from the title."""
+    title = _plain(title)
+    given = _plain(given)
+    given = "" if _boilerplate(given, title) else given
+    texts = []
+    for m in re.finditer(r'<(p|figcaption)( class="[^"]*")?>(.*?)</\1>', body or "", re.S):
+        if m.group(2) and re.search(r"links|note|fine|cap", m.group(2)):
+            continue
+        t = re.sub(r"^(THE )?MUSEUM OF COMPUTER ART\b[\s:·|-]*|^MOCA\s*[:·|-]+\s*", "", _plain(m.group(3)))  # old page headers
+        if len(t) >= 20 and not _boilerplate(t, title):
+            texts.append(t)
+    for t in [given] + texts:
+        if len(t) >= 70:
+            return _clip(t)
+    short = given or next(iter(texts), "")
+    s = title if not short else short if _norm(title) in _norm(short) else f"{title.rstrip(' .')}. {short}"
+    s = s.rstrip(" .") + "."
+    where = f"Part of {section} at the Museum of Computer Art" if section and section not in ("Home", "Museum", "Artist exhibit") else "At the Museum of Computer Art"
+    for tail in (f" {where} (MOCA), digital fine art since 1993.", f" {where} (MOCA).", " At MOCA."):
+        if len(s + tail) <= 160:
+            return s + tail
+    return _clip(s)
+
+
+def ld_script(data):
+    j = json.dumps(data, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
+    return f'<script type="application/ld+json">{j}</script>'
+
+
+def org_ld(site_url):
+    return {"@context": "https://schema.org", "@type": ["Museum", "NGO"], "@id": site_url + "/#museum",
+            "name": SITE_NAME, "alternateName": "MOCA", "url": site_url + "/", "logo": site_url + "/logo.png",
+            "image": site_url + OG_DEFAULT, "foundingDate": "1993", "email": "hello@museumofcomputerart.org",
+            "founder": [{"@type": "Person", "name": "Don Archer"}, {"@type": "Person", "name": "Bob Dodson"}],
+            "nonprofitStatus": "https://schema.org/Nonprofit501c3",
+            "description": "A nonprofit museum of digital fine art, online since 1993. Free to view, free to exhibit, no advertising."}
+
+
+def website_ld(site_url):
+    return {"@context": "https://schema.org", "@type": "WebSite", "@id": site_url + "/#website", "name": SITE_NAME,
+            "alternateName": "MOCA", "url": site_url + "/", "inLanguage": "en", "publisher": {"@id": site_url + "/#museum"}}
+
+
+def breadcrumb_ld(trail, site_url):
+    """trail: [(name, path or None)], the visible breadcrumbs followed by the page itself."""
+    items = []
+    for i, (name, path) in enumerate(trail, 1):
+        it = {"@type": "ListItem", "position": i, "name": name}
+        if path:
+            it["item"] = site_url + canonical_path(path)
+        items.append(it)
+    return {"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": items}
+
+
+def head(title, url, desc, og_image, site_url, extra="", ld=()):
+    canon = site_url + canonical_path(url)
     full_title = title if title.startswith("MOCA") else f"{title} · MOCA"
-    d = E((desc or "Museum of Computer Art: digital fine art since 1993.")[:300].strip())
-    og = f'<meta property="og:image" content="{E(og_image)}">' if og_image else ""
+    d = E(_clip(_plain(desc) or DEFAULT_DESC))
+    robots = '\n<meta name="robots" content="noindex, follow">' if NOINDEX.match(url) else ""
+    canon_tag = f'\n<link rel="canonical" href="{E(canon)}">' if url != "/404.html" else ""
+    og_url = f'<meta property="og:url" content="{E(canon)}">' if url != "/404.html" else ""
+    img = og_image or site_url + OG_DEFAULT
+    ld_html = "".join("\n" + ld_script(x) for x in ld)
     return f"""<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>{E(full_title)}</title>
-<meta name="description" content="{d}">
-<link rel="canonical" href="{E(canon)}">
-<meta property="og:title" content="{E(full_title)}"><meta property="og:description" content="{d}"><meta property="og:url" content="{E(canon)}"><meta property="og:type" content="website">{og}
+<meta name="description" content="{d}">{robots}{canon_tag}
+<meta property="og:site_name" content="{SITE_NAME}"><meta property="og:title" content="{E(full_title)}"><meta property="og:description" content="{d}">{og_url}<meta property="og:type" content="website"><meta property="og:image" content="{E(img)}"><meta property="og:image:alt" content="{E(title if og_image else SITE_NAME)}">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#3b5bfd">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="icon" href="/favicon.ico" sizes="32x32"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="manifest" href="/site.webmanifest">
 <link rel="preload" href="/assets/fonts/bricolage.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/figtree.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="{asset('/assets/site.css')}">
-<!--PRECONNECT--><script src="{asset('/assets/site.js')}" defer></script>{extra}
+<!--PRECONNECT--><script src="{asset('/assets/site.js')}" defer></script>{extra}{ld_html}
 </head>"""
 
 
@@ -68,12 +179,21 @@ FOOTER = """<footer class="foot"><div class="wrap">
 </html>"""
 
 
+INDEX_LINK = re.compile(r'(<a [^>]*?href="/(?:[^"#?]*/)?)index\.html"')
+
+
+def finalize_links(doc):
+    """Link folder index pages by their canonical folder URL (/x/ rather than /x/index.html)."""
+    return INDEX_LINK.sub(r'\1"', doc)
+
+
 def finalize(doc):
     """Speed touches applied to every page: preconnect to the media host only when the page
     shows media; the first images are fetched eagerly, the very first at high priority."""
     m = re.search(r'src="(https?://[^/"]+)/', doc.split("<main", 1)[-1])
     pre = f'<link rel="preconnect" href="{m.group(1)}">\n' if m else ""
     doc = doc.replace("<!--PRECONNECT-->", pre, 1)
+    doc = finalize_links(doc)
     head_, sep, main = doc.partition('<main id="main"')
     if 'fetchpriority="high"' not in main:
         main = main.replace(' loading="lazy"', ' fetchpriority="high"', 1)
@@ -86,7 +206,14 @@ def page(title, url, section, body, desc="", og_image=None, site_url="", scripts
     extra = "".join(f'\n<script src="{asset(s)}" defer></script>' for s in scripts)
     crumbs = (f'<nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>/</span><a href="{E(sec_url)}">{E(sec_name)}</a></nav>'
               if crumb else "")
-    return finalize(head(title, url, desc, og_image, site_url, extra) + header(active) + f"""
+    ld = ()
+    if crumb:
+        trail = [("Home", "/")]
+        if sec_url != "/" and canonical_path(sec_url) != canonical_path(url):
+            trail.append((sec_name, sec_url))
+        ld = (breadcrumb_ld(trail + [(title, None)], site_url),)
+    desc = describe(title, desc, body, sec_name)
+    return finalize(head(title, url, desc, og_image, site_url, extra, ld) + header(active) + f"""
 <main id="main" class="wrap">
 <div class="phead b {color}">{crumbs}<h1>{E(title)}</h1></div>
 {body}
@@ -133,6 +260,10 @@ def link_dense(b):
     return a_text >= 0.5 * max(1, len(b["text"]))
 
 
+def dead_links(h):
+    return re.sub(r'<a href="([^"]*)" data-missing="1">(.*?)</a>', r'<span class="dead" title="This link pointed to a page that was not in the backups">\2</span>', h, flags=re.S)
+
+
 def fill_media(h, media_url):
     return re.sub(r"\{\{MEDIA:([^}]*)\}\}", lambda m: E(media_url(html.unescape(m.group(1)))), h)
 
@@ -170,7 +301,7 @@ def link_href(link, media_url):
 def figure(b, media_url, media, caption="", eager=False, big=False):
     path = b.get("src")
     alt = b.get("alt") or html.unescape(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", caption))).strip()[:140]
-    caption = fill_media(caption, media_url) if caption else caption
+    caption = dead_links(fill_media(caption, media_url)) if caption else caption
     if b.get("ext"):
         tag = f'<img src="{E(b["ext"])}" loading="lazy" decoding="async" alt="{E(alt)}"' + (f' width="{b["w"]}" height="{b["h"]}"' if b.get("w") and b.get("h") else "") + ">"
         inner = tag
@@ -341,7 +472,7 @@ def render_text(b, media_url, media):
     t = b["t"]
     if t == "p":
         h = fill_media(b["html"], media_url)
-        h = re.sub(r'<a href="([^"]*)" data-missing="1">(.*?)</a>', r'<span class="dead" title="This link pointed to a page that was not in the backups">\2</span>', h, flags=re.S)
+        h = dead_links(h)
         cls = ' class="links"' if link_dense(b) else ""
         return f"<p{cls}>{h}</p>"
     if t == "h":
@@ -361,7 +492,20 @@ def render_text(b, media_url, media):
     return ""
 
 
-def render_autogallery(items, header_blocks, message_blocks, cfg, media_url, media):
+# Alt text that is only a file name ("image002", "154", "onlineonwall405787", "thanks.gif") says nothing.
+FILE_STEM = re.compile(r"(?:img|image|dsc|dscn|pic|photo|p)?[_\- ]?\d+[a-z]?|\S*\d{5,}\S*|\S+\.(?:jpe?g|gif|png|bmp)", re.I)
+ALT_ATTR = re.compile(r'(<img [^>]*?)alt="([^"]*)"')
+
+
+def name_alts(body, title):
+    """Artwork images with no alt text, or a file name as alt text, are described by the page title."""
+    def fix(m):
+        alt = html.unescape(m.group(2)).strip()
+        return m.group(1) + (f'alt="{E(title)}"' if not alt or FILE_STEM.fullmatch(alt) else m.group(0)[len(m.group(1)):])
+    return ALT_ATTR.sub(fix, body)
+
+
+def render_autogallery(items, header_blocks, message_blocks, cfg, media_url, media, title=""):
     intro = []
     for b in message_blocks + header_blocks:
         if is_nav_para(b):
@@ -375,7 +519,7 @@ def render_autogallery(items, header_blocks, message_blocks, cfg, media_url, med
         m = media.get(it["src"]) or {}
         full = media_url(it["src"], "1600") if (m.get("variants") or {}).get("1600") and not m.get("animated") else media_url(it["src"])
         tiles.append(f'<figure class="art" id="image-{it["n"]}"><a class="zoom" href="{E(media_url(it["src"]))}" data-full="{E(full)}">'
-                     + img_tag(it["src"], media, media_url, it["caption"], eager=it["n"] <= 4, sizes="(max-width: 640px) 50vw, 260px")
+                     + img_tag(it["src"], media, media_url, f'{title}, image {it["n"]}' if title and FILE_STEM.fullmatch(it["caption"].strip()) else it["caption"], eager=it["n"] <= 4, sizes="(max-width: 640px) 50vw, 260px")
                      + f'</a><figcaption>{E(it["caption"])}</figcaption></figure>')
     controls = (f'<div class="b gbar"><span>{len(items)} images</span>'
                 f'<button class="btn" id="play" data-timer="{timer}" type="button">▶ Play slideshow</button></div>' if items else "")
@@ -392,7 +536,8 @@ def write_assets(out, root):
         p = os.path.join(dst, name)
         if os.path.exists(p):
             ASSET_VER["/assets/" + name] = hashlib.md5(open(p, "rb").read()).hexdigest()[:8]
-    for name in ("favicon.svg", "robots.txt", "CNAME", ".nojekyll"):
+    for name in ("favicon.svg", "favicon.ico", "apple-touch-icon.png", "icon-192.png", "icon-512.png", "logo.png", "og-image.png",
+                 "site.webmanifest", "robots.txt", "CNAME", ".nojekyll"):
         sp = os.path.join(root, "static", name)
         if os.path.exists(sp):
             shutil.copy(sp, os.path.join(out, name))
@@ -408,15 +553,98 @@ def write_meta(out, pages, site_url, write):
     idx = [[rebrand.clean(p["title"]), p["url"], p["section"]] for p in pages if p.get("title") and not dup(p)]
     with open(os.path.join(out, "search.json"), "w") as f:
         json.dump(idx, f, separators=(",", ":"))
-    urls = sorted({p["url"].split("#")[0] for p in pages if not dup(p)})
-    for i in range(0, len(urls), 40000):
-        chunk = urls[i:i + 40000]
-        with open(os.path.join(out, f"sitemap-{i // 40000 + 1}.xml"), "w") as f:
+    seo_finish(out, site_url, os.path.join(os.path.dirname(os.path.abspath(out)), "build", "lastmod.json"))
+
+
+def _main(doc):
+    m = re.search(r'<main id="main".*?</main>', doc, re.S)
+    return m.group(0) if m else ""
+
+
+def seo_finish(out, site_url, state_path, today=None):
+    """Run once every page is written. Pages that duplicate another page (x.htm next to an
+    identical x.html, the /donnie(s)/ mirror, "folder copy/" folders) get a rel=canonical
+    pointing at the original. Then the sitemap lists every indexable page by its canonical URL,
+    with a lastmod date that only changes when the page's content changes (kept in state_path)."""
+    today = today or time.strftime("%Y-%m-%d")
+    paths = {}
+    for d, _, fs in os.walk(out):
+        for f in fs:
+            if f.endswith((".htm", ".html")):
+                full = os.path.join(d, f)
+                paths["/" + os.path.relpath(full, out).replace(os.sep, "/")] = full
+    docs = {u: open(p, encoding="utf-8").read() for u, p in paths.items()}
+    inbound = Counter(html.unescape(h) for doc in docs.values() for h in re.findall(r'<a [^>]*?href="(/[^"#?]*)', doc))
+
+    def similar(a, b):
+        wa, wb = (re.sub(r"<[^>]+>", " ", _main(docs[x])).split() for x in (a, b))
+        return difflib.SequenceMatcher(None, wa, wb, autojunk=False).ratio() >= 0.9
+
+    dup_of = {}
+    for u in sorted(docs):
+        if NOINDEX.match(u):
+            continue
+        if u.endswith(".htm") and u + "l" in docs and similar(u, u + "l"):
+            a, b = u, u + "l"
+            keep = max((a, b), key=lambda x: (inbound[x], x.endswith(".htm")))
+            dup_of[b if keep == a else a] = keep
+        m = re.match(r"(.*?)(?: copy(?: \d+)?| \d| \(\d+\))(/.*)$", u)  # "folder copy/", "folder 2/", "folder (1)/" (Finder duplicates)
+        if m and m.group(1) + m.group(2) in docs and similar(u, m.group(1) + m.group(2)):
+            dup_of[u] = m.group(1) + m.group(2)
+        if u.startswith("/donnie(s)/") and "/" + u[len("/donnie(s)/"):] in docs:
+            dup_of[u] = "/" + u[len("/donnie(s)/"):]
+
+    def final(u):
+        seen = set()
+        while u in dup_of and u not in seen:
+            seen.add(u)
+            u = dup_of[u]
+        return u
+
+    for u in dup_of:
+        canon = E(site_url + canonical_path(final(u)))
+        doc = re.sub(r'<link rel="canonical" href="[^"]*">', f'<link rel="canonical" href="{canon}">', docs[u], count=1)
+        doc = re.sub(r'<meta property="og:url" content="[^"]*">', f'<meta property="og:url" content="{canon}">', doc, count=1)
+        if doc != docs[u]:
+            docs[u] = doc
+            with open(paths[u], "w", encoding="utf-8") as f:
+                f.write(doc)
+
+    try:
+        with open(state_path) as f:
+            state = json.load(f)
+    except (OSError, ValueError):
+        state = {}
+    entries = {}
+    for u in sorted(docs):
+        doc = docs[u]
+        hd = doc.split("</head>", 1)[0]
+        m = re.search(r'<link rel="canonical" href="([^"]*)">', hd)
+        if not m or 'name="robots" content="noindex' in hd:
+            continue
+        loc = html.unescape(m.group(1))
+        if loc != site_url + canonical_path(u):
+            continue
+        t = re.search(r"<title>(.*?)</title>", hd, re.S)
+        h = hashlib.md5(((t.group(1) if t else "") + _main(doc)).encode("utf-8")).hexdigest()[:12]
+        old = state.get(loc)
+        entries[loc] = [h, old[1] if old and old[0] == h else today]
+    os.makedirs(os.path.dirname(state_path), exist_ok=True)
+    with open(state_path, "w") as f:
+        json.dump(entries, f, indent=0, sort_keys=True)
+    locs = sorted(entries)
+    for name in os.listdir(out):
+        if re.fullmatch(r"sitemap-\d+\.xml", name):
+            os.remove(os.path.join(out, name))
+    chunks = [locs[i:i + 40000] for i in range(0, len(locs), 40000)]  # the limit is 50,000 per file
+    for i, chunk in enumerate(chunks, 1):
+        with open(os.path.join(out, f"sitemap-{i}.xml"), "w") as f:
             f.write('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n')
-            f.write("".join(f"<url><loc>{E(site_url + u)}</loc></url>\n" for u in chunk))
+            f.write("".join(f"<url><loc>{E(u)}</loc><lastmod>{entries[u][1]}</lastmod></url>\n" for u in chunk))
             f.write("</urlset>\n")
-    n = (len(urls) - 1) // 40000 + 1
     with open(os.path.join(out, "sitemap.xml"), "w") as f:
         f.write('<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n')
-        f.write("".join(f"<sitemap><loc>{site_url}/sitemap-{i + 1}.xml</loc></sitemap>\n" for i in range(n)))
+        f.write("".join(f"<sitemap><loc>{site_url}/sitemap-{i}.xml</loc><lastmod>{max(entries[u][1] for u in c)}</lastmod></sitemap>\n"
+                        for i, c in enumerate(chunks, 1)))
         f.write("</sitemapindex>\n")
+    return dup_of

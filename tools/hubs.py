@@ -323,7 +323,8 @@ def build_home(ctx, write, years, card):
              '<a href="/imageofthedayindex.htm">Images of the Day<span></span></a><a href="/editorial/editorial.htm">Reviews &amp; essays<span></span></a><a href="/mocanet/mocalist.htm">MOCAnet artist sites<span></span></a><a href="/directory/">Every page, A to Z<span></span></a></div></div>')
     body = hero + galleries + dc_html + lists
     html_ = T.head("MOCA · Museum of Computer Art", "/", "The Museum of Computer Art: digital fine art since 1993. Galleries, AI art, the Donnie contest and decades of archives, free to view.",
-                   media_url(feat_img, "1600") if feat_img else None, ctx["site_url"]) + T.header("/") + f'\n<main id="main" class="wrap">{body}</main>\n' + T.FOOTER
+                   media_url(feat_img, "1600") if feat_img else None, ctx["site_url"],
+                   ld=(T.org_ld(ctx["site_url"]), T.website_ld(ctx["site_url"]))) + T.header("/") + f'\n<main id="main" class="wrap">{body}</main>\n' + T.FOOTER
     html_ = T.finalize(html_.replace("</body>", '<script>(function(){var t=document.querySelector(".doodle");if(!t||!window.IntersectionObserver||matchMedia("(prefers-reduced-motion: reduce)").matches)return;var l=JSON.parse(t.dataset.doodles||"[]"),i=0,im=t.querySelector("img"),vis=false,tm=null;if(!im||l.length<2)return;function tick(){if(!vis||document.hidden)return;i=(i+1)%l.length;var n=new Image();n.onload=function(){im.removeAttribute("srcset");im.src=n.src};n.src=l[i]}function sync(){clearInterval(tm);tm=(vis&&!document.hidden)?setInterval(tick,4000):null}new IntersectionObserver(function(e){vis=e[0].isIntersecting;sync()}).observe(t);document.addEventListener("visibilitychange",sync)})();</script>\n</body>'))
     write("/", html_)
 

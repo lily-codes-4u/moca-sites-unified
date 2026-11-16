@@ -50,8 +50,15 @@ if os.path.exists(MEDIA_JSON):
         MEDIA = json.load(f)
 
 
+def published(p):
+    """False for files that are not published as pages (see classify_pages), so links to them
+    are shown as dead links instead of pointing at a 404."""
+    return not (JUNK.search(p) or DRAFT_EXT.search(p) or posixpath.basename(p).startswith(".")
+                or (p.endswith((".asp", ".aspx")) and SERVER_SCRIPT.search(p)))
+
+
 def exists(p):
-    return p in FILES
+    return p in FILES and (not p.endswith(legacy.PAGE_EXT) or published(p))
 
 
 def read(p):
@@ -192,7 +199,7 @@ def build_page(p, ags):
     title = re.sub(r"\s*[\u2014|-]+\s*MOCA: Museum of Computer Art\s*$", "", title).strip() or title
     if len(title) > 90:
         title = title[:87].rsplit(" ", 1)[0].rstrip(" ·,:;-") + "…"
-    body = body.replace('alt=""', f'alt="{html.escape(title)}"')
+    body = T.name_alts(body, title)
     if p in ROOMY:
         body = body.replace('class="b prose"', 'class="b prose roomy"')
     desc = parsed["desc"] or next((b["text"] for b in parsed["blocks"] if b["t"] == "p" and len(b["text"]) > 60), "")
@@ -244,7 +251,7 @@ def build_autogallery(folder, index_path):
         title = (hb.split("  ")[0][:80] if hb else "") or folder.split("/")[-1].replace("autogallery_", "").replace("_", " ").title()
     section = section_for(folder + "/")
     url = "/" + folder + "/"
-    body = T.render_autogallery(items, header["blocks"], message["blocks"], cfg, media_url, MEDIA)
+    body = T.render_autogallery(items, header["blocks"], message["blocks"], cfg, media_url, MEDIA, title)
     page_html = T.page(title=title, url=url, section=section, body=body,
                        desc=f"{title}: {len(items)} images in the MOCA AutoGallery.",
                        og_image=media_url(items[0]["src"], "1600") if items else None, site_url=SITE_URL,
