@@ -32,7 +32,7 @@ MOVED = {
     "/legacy/moca-virtual-museum-home.html": "/legacy/moca-home.html",
 }
 
-_KEEP = re.compile(r"<script\b[^>]*>.*?</script>|name=\"business\" value=\"[^\"]*\"|https?://web\.archive\.org/[^\s\"'<>]*|https?://media\.museumofcomputerart\.org/[^\s\"'<>]*", re.I | re.S)
+_KEEP = re.compile(r"<script\b(?![^>]*ld\+json)[^>]*>.*?</script>|name=\"business\" value=\"[^\"]*\"|https?://web\.archive\.org/[^\s\"'<>]*|https?://media\.museumofcomputerart\.org/[^\s\"'<>]*", re.I | re.S)
 
 _RULES = [
     # Don's old personal address: the museum address instead, and no "or:" line repeating it
