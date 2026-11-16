@@ -184,6 +184,7 @@ def build_page(p, ags):
     if lead and 3 < len(lead) < 90 and lead.lower() not in title.lower() and not GENERIC_TITLE.match(lead):
         title = lead if title.lower() in lead.lower() else (f"{lead} · {title}" if len(title) < 40 else lead)
     title = LEGACY_TITLES.get(p, title)
+    title = re.sub(r"\s*[\u2014|-]+\s*MOCA: Museum of Computer Art\s*$", "", title).strip() or title
     if len(title) > 90:
         title = title[:87].rsplit(" ", 1)[0].rstrip(" ·,:;-") + "…"
     body = body.replace('alt=""', f'alt="{html.escape(title)}"')
