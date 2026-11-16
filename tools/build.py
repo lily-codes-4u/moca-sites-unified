@@ -167,6 +167,10 @@ def pick_title(parsed, p):
 
 
 # ---------------------------------------------------------------- page build
+# Text-heavy museum pages that get extra space between lines and paragraphs.
+ROOMY = {"about.htm", "donate.htm"}
+
+
 def build_page(p, ags):
     raw = read(p)
     text = legacy.decode(raw)
@@ -189,6 +193,8 @@ def build_page(p, ags):
     if len(title) > 90:
         title = title[:87].rsplit(" ", 1)[0].rstrip(" ·,:;-") + "…"
     body = body.replace('alt=""', f'alt="{html.escape(title)}"')
+    if p in ROOMY:
+        body = body.replace('class="b prose"', 'class="b prose roomy"')
     desc = parsed["desc"] or next((b["text"] for b in parsed["blocks"] if b["t"] == "p" and len(b["text"]) > 60), "")
     page_html = T.page(title=title, url=url, section=section, body=body, desc=desc,
                        og_image=media_url(first_img, "1600") if first_img else None, site_url=SITE_URL)
