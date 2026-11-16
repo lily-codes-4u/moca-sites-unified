@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Remove the retired moca.virtual.museum name from the published site.
+"""Remove the retired moca.virtual.museum and mocadigitalart.com names, and Don's old
+personal address donarchr@gmail.com, from the published site.
 
 build.py runs clean() on every page it writes, so a rebuild stays clean. Run this file
 on its own to clean an already built site/ folder in place (no backups needed):
@@ -8,6 +9,7 @@ on its own to clean an already built site/ folder in place (no backups needed):
     python3 tools/rebrand.py --check    # only count what is left
 
 What is kept on purpose: Internet Archive links (they only work with the old address),
+except those to pages this site still has,
 media file URLs under media.museumofcomputerart.org (the R2 object keys still use the
 old folder name), the PayPal account address in donate forms (changing it would
 send donations to a different PayPal account), and <script> blocks, such as the 404.html code that redirects old addresses.
@@ -20,6 +22,8 @@ import sys
 EMAIL = "hello@museumofcomputerart.org"
 NEW_HOST = "museumofcomputerart.org"
 OLD = r"(?:www\.)?moca\.virtual\.museum"
+OLD_AI = r"(?:www\.)?mocadigitalart\.com"
+AI_NAME = "MOCA AI Art"
 
 # Page folders and files whose own address contained the old name: old prefix -> new prefix.
 MOVED = {
@@ -31,6 +35,18 @@ MOVED = {
 _KEEP = re.compile(r"<script\b[^>]*>.*?</script>|name=\"business\" value=\"[^\"]*\"|https?://web\.archive\.org/[^\s\"'<>]*|https?://media\.museumofcomputerart\.org/[^\s\"'<>]*", re.I | re.S)
 
 _RULES = [
+    # Don's old personal address: the museum address instead, and no "or:" line repeating it
+    (re.compile(r"\s*donarchr@gmail\.com\s*", re.I), EMAIL),
+    (re.compile(r'<p>or:</p><p>(<b>)?<a href="mailto:' + re.escape(EMAIL) + r'">' + re.escape(EMAIL) + r'</a>(</b>)?</p>'), ""),
+    # the AI companion site's name: it now lives in the AI Art section
+    (re.compile(r'<a href="/(?:aiexhibits\.htm)?">\s*' + OLD_AI + r'(\.?)</a>', re.I), r'<a href="/ai.html">' + AI_NAME + r'\1</a>'),
+    (re.compile(r"MOCADIGITALART\.COM"), "MOCA AI ART"),
+    (re.compile(r"(?:the )?original " + OLD_AI + r" front page", re.I), "The original AI Art front page"),
+    (re.compile(OLD_AI + r" front page", re.I), "AI Art front page"),
+    (re.compile(r"first shown on " + OLD_AI, re.I), "first shown on MOCA's AI Art site"),
+    (re.compile(r"\bat " + OLD_AI, re.I), "at " + AI_NAME),
+    (re.compile(r"https?://" + OLD_AI + r"(?=[/\"'?#])", re.I), ""),
+    (re.compile(OLD_AI, re.I), AI_NAME),
     # email addresses, linked or not
     (re.compile(r"\b(?:don|admin|donarcher)@" + OLD, re.I), EMAIL),
     # the same person listed twice under two old addresses
@@ -75,6 +91,9 @@ def clean(text):
         kept.append(m.group(0))
         return f"\x00{len(kept) - 1}\x00"
 
+    # Internet Archive copies of pages this site still has: link to the page here instead
+    text = re.sub(r"https?://web\.archive\.org/web/\d+/https?://" + OLD + r"/([^\s\"'<>]*)",
+                  lambda m: "/" + {"index.asp": "", "lozada/lozada02.htm": "lozada/lozada02.html"}.get(m.group(1).lower(), m.group(1).lower()), text, flags=re.I)
     text = _KEEP.sub(stash, text)
     for pat, rep in _RULES:
         text = pat.sub(rep, text)
@@ -97,7 +116,7 @@ def _files(site):
 
 
 def count(site):
-    pat = re.compile(r"virtual\.museum", re.I)
+    pat = re.compile(r"virtual\.museum|mocadigitalart\.com|donarchr@", re.I)
     total, left = 0, {}
     for p in _files(site):
         with open(p, encoding="utf-8", errors="surrogateescape") as f:
