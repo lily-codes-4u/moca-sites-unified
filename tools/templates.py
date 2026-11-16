@@ -12,6 +12,108 @@ NAV = [("/collection.html", "Collection"), ("/ai.html", "AI Art"), ("/donnie.htm
 NAV_TEXT = re.compile(r"^(index of .*|first|last|first page|last page|view (all|contest) .*|(back to |to )?top( of page)?|next( page| image)?|previous( page| image)?|prev|back|go back|home|moca home|main page|index|top|return( to.*)?|"
                       r"moca|museum of computer art|mocadigitalart|moca\.virtual\.museum|forward|>>|<<|>|<|\d{1,3})$", re.I)
 ASSET_VER = {}
+DEFAULT_DESC = "Museum of Computer Art: digital fine art since 1993."
+
+# ------------------------------------------------------------------ titles
+# Text the old pages put where a title belongs but which names nothing: a hit-counter widget,
+# leftover markup or arrows, script placeholders, "(3 of 8)" counters and notes to the reader.
+JUNK_TITLE = re.compile(r"^(.*visitors online( now)?|[,\s]*ET,.*|add bad words|var \w+|<?/?(html|head|body)>?|\[gallery\]|\(?\d+ of \d+\)?|"
+                        r"\(?(please )?see (the )?note below\)?|this page has not (yet )?been fully populated|no comments available on this artist\.?|"
+                        r"\(debug path:.*\)|_+|visitors \w{3} [\d/]+)$", re.I)
+TITLE_TYPOS = [(re.compile(r"\bSubmision\b"), "Submission"), (re.compile(r"\bsubmision\b"), "submission")]
+SMALL_WORDS = {"a", "an", "and", "as", "at", "by", "for", "from", "in", "of", "on", "or", "the", "to", "with"}
+ABBREV = {"bros", "ave", "inc", "ltd", "etc", "vol", "dept", "assn", "corp", "univ", "mrs"}
+KEEP_CAPS = {"AI", "MOCA", "MOCANET", "NY", "NYC", "NYS", "USA", "UK", "II", "III", "IV", "TV", "3D", "JD", "MD", "DNA", "CD", "DVD"}
+
+
+def junk_title(t):
+    t = re.sub(r"\s+", " ", t or "").strip()
+    return not re.search(r"\w", t) or bool(JUNK_TITLE.match(t))
+
+
+def _unshout(part):
+    """'ALL THE SHIPS AT SEA' -> 'All the Ships at Sea'; acronyms and tokens with digits stay."""
+    words = part.split(" ")
+    out = []
+    for i, w in enumerate(words):
+        core = re.sub(r"^\W+|\W+$", "", w)
+        if core == "PAYPAL":
+            out.append(w.replace(core, "PayPal"))
+            continue
+        if not core or core in KEEP_CAPS or re.search(r"\d", core):
+            out.append(w)
+            continue
+        low = w.lower()
+        if i and core.lower() in SMALL_WORDS:
+            out.append(low)
+        else:
+            j = len(w) - len(w.lstrip("\"'(["))
+            out.append(low[:j] + low[j:j + 1].upper() + low[j + 1:])
+    return " ".join(out)
+
+
+def tidy_title(t):
+    """General clean-ups of a page title made from the old pages' own words."""
+    orig = t = re.sub(r"\s+", " ", t or "").strip()
+    for pat, rep in TITLE_TYPOS:
+        t = pat.sub(rep, t)
+    # "the Museum of Computer Art Donations" -> "Donations"; "Mary's Page at MOCA: the Museum of Computer Art" -> "Mary's Page at MOCA"
+    t = re.sub(r"^the Museum of Computer Art\s*[:|\-–—]?\s+(?=\w)", "", t)
+    t = re.sub(r"(?<=\w)\s*(:|[–—|-]+)\s*(the )?Museum of Computer Art\s*$", "", t, flags=re.I)
+    # stray arrows and backslashes from old navigation ("<Originals", "Three Graces · <")
+    parts = [re.sub(r"^[<>\\]+\s*|\s*[<>\\]+$", "", p.strip()) for p in t.split(" · ")]
+    parts = [p for p in parts if p]
+    kept = []
+    for i, p in enumerate(parts):
+        low = p.lower()
+        # a part repeated word for word, or "Museum of Computer Art Donnie 2009" after "Donnie 2009"
+        rest = re.sub(r"^(the )?museum of computer art\b\W*", "", low).strip(" .")
+        others = [q.lower() for j, q in enumerate(parts) if j != i]
+        if low in [k.lower() for k in kept] or (rest != low and (not rest or any(rest in q for q in others))):
+            continue
+        if not kept:  # the leading part: a page or section heading, not an artwork's own title
+            # one sentence-ending period ("Includes AI Art."), never "...", "Jr.", "Bros." or "Q.E.D."
+            last = p.rsplit(" ", 1)[-1]
+            if re.fullmatch(r"[\"'(]*[A-Za-z]{3,}\.", last) and last.strip("\"'(.").lower() not in ABBREV:
+                p = p[:-1]
+            # set in capitals, two or more words
+            if not re.search(r"[a-z]", p) and len(re.findall(r"\b[A-Z][A-Z']{2,}\b", p)) >= 2:
+                p = _unshout(p)
+        kept.append(p)
+    t = " · ".join(kept) or t
+    # a lowercase sentence start ("the Kremlin", "click to view or order ..."), not handles like "jjblack" or "fa2k"
+    if re.match(r"the\s", t) or (re.match(r"[a-z]+\s", t) and len(t.split()) >= 3):
+        t = t[0].upper() + t[1:]
+    return t.strip() or orig
+
+
+def shorten_title(t, artwork=False, limit=90):
+    """Over-long titles lose whole ' · ' parts instead of stopping mid-phrase. On a single-artwork
+    page ("Exhibit · Artist · Artwork title") the exhibit name goes first, so the artwork's own
+    title stays; elsewhere the trailing parts go."""
+    parts = t.split(" · ")
+    while artwork and len(" · ".join(parts)) > limit and len(parts) > 1:
+        parts.pop(0)
+    t = " · ".join(parts)
+    if len(t) > limit:
+        t = t[:limit - 3].rsplit(" ", 1)[0].rstrip(" ·,:;-") + "…"
+    if t.endswith("…") and " · " in t:
+        t = t.rsplit(" · ", 1)[0]
+    return t
+
+
+def drop_title_echo(body, title):
+    """Leave out a first heading or bold line that only repeats the page title shown just above it."""
+    m = re.match(r'(<div class="b prose[^"]*">)(<hr>)?(<p>|<h2>)(.*?)(</p>|</h2>)', body)
+    if not m:
+        return body
+    txt = re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", "", m.group(4)))).strip()
+    if not txt or txt.lower().strip(" .:!") != title.lower().strip(" .:!"):
+        return body
+    rest = body[m.end():]
+    if rest.startswith("</div>"):
+        return rest[len("</div>"):].lstrip("\n")
+    return m.group(1) + rest
 
 
 def asset(path):
@@ -21,7 +123,7 @@ def asset(path):
 def head(title, url, desc, og_image, site_url, extra=""):
     canon = site_url + url.split("#")[0]
     full_title = title if title.startswith("MOCA") else f"{title} · MOCA"
-    d = E((desc or "Museum of Computer Art: digital fine art since 1993.")[:300].strip())
+    d = E((desc or f"{title} · {DEFAULT_DESC}")[:300].strip())
     og = f'<meta property="og:image" content="{E(og_image)}">' if og_image else ""
     return f"""<!doctype html>
 <html lang="en">
@@ -95,10 +197,21 @@ def finalize(doc):
     return head_ + sep + main
 
 
+# The breadcrumb names the page it links to: exhibit pages sit under the Artists hub.
+CRUMB_LABEL = {"/artists.html": "Artists"}
+
+
+def crumb_link(name, sec_url, url):
+    label = E(CRUMB_LABEL.get(sec_url, name))
+    if sec_url == url.split("#")[0]:  # the section's own index page: no link to itself
+        return f'<span aria-current="page">{label}</span>'
+    return f'<a href="{E(sec_url)}">{label}</a>'
+
+
 def page(title, url, section, body, desc="", og_image=None, site_url="", scripts=(), active=None, crumb=True):
     sec_name, color, sec_url = section
     extra = "".join(f'\n<script src="{asset(s)}" defer></script>' for s in scripts)
-    crumbs = (f'<nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>/</span><a href="{E(sec_url)}">{E(sec_name)}</a></nav>'
+    crumbs = (f'<nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>/</span>{crumb_link(sec_name, sec_url, url)}</nav>'
               if crumb else "")
     return finalize(head(title, url, desc, og_image, site_url, extra) + header(active) + f"""
 <main id="main" class="wrap">
