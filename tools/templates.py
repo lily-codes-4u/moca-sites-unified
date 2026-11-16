@@ -97,10 +97,27 @@ def page(title, url, section, body, desc="", og_image=None, site_url="", scripts
 # ------------------------------------------------------------------ blocks
 def LOGOISH(path, media):
     m = media.get(path) or {}
-    w, h = m.get("w") or 0, m.get("h") or 0
+    return deco(path, m.get("w"), m.get("h"))
+
+
+def deco(path, w, h):
+    """Banners, logos, buttons and strips: not artwork to crop into a square tile."""
+    w, h = w or 0, h or 0
     if w and h and (w / h > 3 or h / w > 3 or (w < 120 and h < 120)):
         return True
-    return bool(re.search(r"(logo|head|banner|title|top\d|header|button|footer)[^/]*$", path))
+    return bool(re.search(r"(logo|head|banner|title|top\d|header|button|footer)[^/]*$", path or ""))
+
+
+# Image walls: one picture (plus banners) is shown alone and large; two to four share a row at full
+# size, never cropped; five or more become a grid of square tiles that open in the viewer.
+SIZES_BIG = "(max-width: 900px) 100vw, 66vw"
+SIZES_TILE = "(max-width: 640px) 50vw, (max-width: 1040px) 33vw, 260px"
+
+
+def wall_class(n_art, n_all):
+    if not n_art:  # only small or strip-shaped pictures (e.g. a page of thumbnails): count them all
+        n_art = n_all
+    return "wall one" if n_art <= 1 else "wall few" if n_art <= 4 else "wall"
 
 
 def is_nav_para(b):
@@ -137,7 +154,7 @@ def fill_media(h, media_url):
     return re.sub(r"\{\{MEDIA:([^}]*)\}\}", lambda m: E(media_url(html.unescape(m.group(1)))), h)
 
 
-def img_tag(path, media, media_url, alt, eager=False, sizes="(max-width: 700px) 100vw, 50vw", w=None, h=None):
+def img_tag(path, media, media_url, alt, eager=False, sizes="(max-width: 700px) 100vw, 50vw", w=None, h=None, tile=False):
     m = media.get(path) or {}
     W, H = m.get("w") or w, m.get("h") or h
     var = m.get("variants") or {}
@@ -154,6 +171,8 @@ def img_tag(path, media, media_url, alt, eager=False, sizes="(max-width: 700px) 
             parts.append(f"{E(media_url(path, '1600'))} {min(1600, W or 1600)}w")
         srcset = f' srcset="{", ".join(parts)}" sizes="{sizes}"' if len(parts) > 1 else ""
     dims = f' width="{W}" height="{H}"' if W and H else ""
+    if tile and W and H and min(W, H) < 400:
+        dims += f' style="--s:{min(W, H)}px"'  # a square tile never grows past the picture's short side
     load = ' fetchpriority="high"' if eager == "high" or eager is True else "" if eager else ' loading="lazy"'
     return f'<img src="{E(src)}"{srcset}{dims}{load} decoding="async" alt="{E(alt)}">'
 
@@ -167,7 +186,7 @@ def link_href(link, media_url):
     return target, kind == "external"
 
 
-def figure(b, media_url, media, caption="", eager=False, big=False):
+def figure(b, media_url, media, caption="", eager=False, big=False, sizes=None):
     path = b.get("src")
     alt = b.get("alt") or html.unescape(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", caption))).strip()[:140]
     caption = fill_media(caption, media_url) if caption else caption
@@ -176,8 +195,8 @@ def figure(b, media_url, media, caption="", eager=False, big=False):
         inner = tag
         full = b["ext"]
     else:
-        sizes = "(max-width: 900px) 100vw, 66vw" if big else "(max-width: 640px) 50vw, (max-width: 1040px) 33vw, 260px"
-        inner = img_tag(path, media, media_url, alt, eager=eager, sizes=sizes, w=b.get("w"), h=b.get("h"))
+        sizes = sizes or (SIZES_BIG if big else SIZES_TILE)
+        inner = img_tag(path, media, media_url, alt, eager=eager, sizes=sizes, w=b.get("w"), h=b.get("h"), tile=True)
         full = media_url(path)
     link = b.get("link")
     if link and link[0] != "missing":
@@ -192,7 +211,18 @@ def figure(b, media_url, media, caption="", eager=False, big=False):
         disp = media_url(path, "1600") if (m.get("variants") or {}).get("1600") and not m.get("animated") else full
         a = f'<a class="zoom" href="{E(full)}" data-full="{E(disp)}">{inner}</a>'
     cap = f"<figcaption>{caption}</figcaption>" if caption else ""
-    return f'<figure class="art">{a}{cap}</figure>'
+    return f'<figure class="{fig_class(b, media)}">{a}{cap}</figure>'
+
+
+def is_deco(b, media):
+    if b.get("ext") or not b.get("src"):
+        return False
+    m = media.get(b["src"]) or {}
+    return deco(b["src"], m.get("w") or b.get("w"), m.get("h") or b.get("h"))
+
+
+def fig_class(b, media):
+    return "art deco" if is_deco(b, media) else "art"
 
 
 def media_block(b, media_url, media):
@@ -281,7 +311,7 @@ def render_blocks(blocks, media_url, media):
             info.append(render_text(b, media_url, media))
         cap = caps.get(i, "")
         lead = html.unescape(re.sub(r"\s+", " ", re.sub(r"<br>", " · ", re.sub(r"<(?!br)[^>]+>", "", cap)))).strip(" ·")
-        out.append('<div class="artwork">' + figure(content[i], media_url, media, cap, eager=True, big=True).replace('class="art"', 'class="art b"', 1)
+        out.append('<div class="artwork">' + figure(content[i], media_url, media, cap, eager=True, big=True).replace('<figure class="art', '<figure class="art b', 1)
                    + ('<div class="b info">' + "".join(x for x in info if x) + "</div>" if any(info) else "") + "</div>")
     else:
         run, prose = [], []
@@ -295,8 +325,9 @@ def render_blocks(blocks, media_url, media):
         def close_run():
             nonlocal first
             if run:
-                cls = "wall one" if len(run) == 1 else "wall"
-                out.append(f'<div class="{cls}">' + "".join(run) + "</div>")
+                cls = wall_class(sum(1 for r in run if not is_deco(r[0], media)), len(run))
+                sizes = SIZES_TILE if cls == "wall" else SIZES_BIG
+                out.append(f'<div class="{cls}">' + "".join(figure(r[0], media_url, media, r[1], eager=r[2], sizes=sizes) for r in run) + "</div>")
                 run.clear()
 
         for k, b in enumerate(content):
@@ -306,7 +337,7 @@ def render_blocks(blocks, media_url, media):
                 if b.get("missing") or (media.get(b.get("src") or "") or {}).get("error"):
                     continue
                 close_prose()
-                run.append(figure(b, media_url, media, caps.get(k, ""), eager=first, big=(n_imgs <= 2)))
+                run.append((b, caps.get(k, ""), first))
                 first = False
             elif b["t"] in ("media", "embed"):
                 close_prose(); close_run()
@@ -371,16 +402,18 @@ def render_autogallery(items, header_blocks, message_blocks, cfg, media_url, med
             intro.append(r)
     timer = re.sub(r"\D", "", cfg.get("SlideShowTimer", "4")) or "4"
     tiles = []
+    cls = wall_class(sum(1 for it in items if not is_deco({"src": it["src"]}, media)), len(items))
+    sizes = "(max-width: 640px) 50vw, 260px" if cls == "wall" else SIZES_BIG
     for it in items:
         m = media.get(it["src"]) or {}
         full = media_url(it["src"], "1600") if (m.get("variants") or {}).get("1600") and not m.get("animated") else media_url(it["src"])
-        tiles.append(f'<figure class="art" id="image-{it["n"]}"><a class="zoom" href="{E(media_url(it["src"]))}" data-full="{E(full)}">'
-                     + img_tag(it["src"], media, media_url, it["caption"], eager=it["n"] <= 4, sizes="(max-width: 640px) 50vw, 260px")
+        tiles.append(f'<figure class="{fig_class({"src": it["src"]}, media)}" id="image-{it["n"]}"><a class="zoom" href="{E(media_url(it["src"]))}" data-full="{E(full)}">'
+                     + img_tag(it["src"], media, media_url, it["caption"], eager=it["n"] <= 4, sizes=sizes, tile=True)
                      + f'</a><figcaption>{E(it["caption"])}</figcaption></figure>')
     controls = (f'<div class="b gbar"><span>{len(items)} images</span>'
                 f'<button class="btn" id="play" data-timer="{timer}" type="button">▶ Play slideshow</button></div>' if items else "")
     return ((f'<div class="b prose">{"".join(intro)}</div>' if intro else "") + controls +
-            f'<div class="wall" id="gallery">{"".join(tiles)}</div>')
+            f'<div class="{cls}" id="gallery">{"".join(tiles)}</div>')
 
 
 # ------------------------------------------------------------------ assets
