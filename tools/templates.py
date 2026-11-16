@@ -100,7 +100,11 @@ def LOGOISH(path, media):
     w, h = m.get("w") or 0, m.get("h") or 0
     if w and h and (w / h > 3 or h / w > 3 or (w < 120 and h < 120)):
         return True
-    return bool(re.search(r"(logo|head|banner|title|top\d|header|button|footer)[^/]*$", path))
+    # narrow strips at most 100px across (the 280x100 MOCA logo, 150x50 buttons) are site graphics too
+    if w and h and max(w, h) / min(w, h) >= 2.3 and min(w, h) <= 100:
+        return True
+    # "untitled" is a common artwork name, not a title graphic
+    return bool(re.search(r"(logo|head|banner|(?<!un)title|top\d|header|button|footer)[^/]*$", path))
 
 
 def is_nav_para(b):
