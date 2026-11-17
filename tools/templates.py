@@ -1,5 +1,4 @@
 """HTML templates for the unified MOCA site (Bento design, prototype 3)."""
-import difflib
 import hashlib
 import html
 import json
@@ -7,7 +6,6 @@ import os
 import re
 import shutil
 import time
-from collections import Counter
 from urllib.parse import quote, unquote
 
 E = html.escape
@@ -755,10 +753,12 @@ def _main(doc):
 
 
 def seo_finish(out, site_url, state_path, today=None):
-    """Run once every page is written. Pages that duplicate another page (x.htm next to an
-    identical x.html, the /donnie(s)/ mirror, "folder copy/" folders) get a rel=canonical
-    pointing at the original. Then the sitemap lists every indexable page by its canonical URL,
-    with a lastmod date that only changes when the page's content changes (kept in state_path)."""
+    """Run once every page is written. Pages that duplicate another page (the /donnie(s)/ mirror,
+    x.htm next to x.html, "folder copy/" folders, folders copied into other folders, drafts) become
+    redirects to the page kept (see dedupe.py), and links, hubs, the directory and search follow.
+    Then the sitemap lists every indexable page by its canonical URL, with a lastmod date that only
+    changes when the page's content changes (kept in state_path)."""
+    import dedupe
     today = today or time.strftime("%Y-%m-%d")
     paths = {}
     for d, _, fs in os.walk(out):
@@ -767,35 +767,30 @@ def seo_finish(out, site_url, state_path, today=None):
                 full = os.path.join(d, f)
                 paths["/" + os.path.relpath(full, out).replace(os.sep, "/")] = full
     docs = {u: open(p, encoding="utf-8").read() for u, p in paths.items()}
-    inbound = Counter(html.unescape(h) for doc in docs.values() for h in re.findall(r'<a [^>]*?href="(/[^"#?]*)', doc))
-
-    def similar(a, b):
-        wa, wb = (re.sub(r"<[^>]+>", " ", _main(docs[x])).split() for x in (a, b))
-        return difflib.SequenceMatcher(None, wa, wb, autojunk=False).ratio() >= 0.9
-
-    dup_of = {}
-    for u in sorted(docs):
-        if NOINDEX.match(u):
+    if "/assets/site.css" not in ASSET_VER and os.path.exists(os.path.join(out, "assets", "site.css")):
+        ASSET_VER["/assets/site.css"] = hashlib.md5(open(os.path.join(out, "assets", "site.css"), "rb").read()).hexdigest()[:8]
+    dup_of, notes = dedupe.find(docs)
+    _, merged = dedupe.apply(out, docs, dup_of, site_url, css=asset("/assets/site.css"))
+    dedupe.filter_search(out, dup_of, docs)
+    with open(os.path.join(os.path.dirname(state_path), "duplicates.json"), "w") as f:
+        json.dump({"redirects": dup_of, "merged_into_kept_page": merged, "for_a_person": notes}, f, indent=0, sort_keys=True)
+    # A /donnie(s)/ mirror page that differs from its counterpart stays, but search engines are
+    # pointed at the counterpart, as before.
+    for kind, u, t in notes:
+        if kind == "differs from its copy" and u.startswith("/donnie(s)/") and u not in dup_of:
+            canon = E(site_url + canonical_path(t))
+            doc = re.sub(r'<link rel="canonical" href="[^"]*">', f'<link rel="canonical" href="{canon}">', docs[u], count=1)
+            doc = re.sub(r'<meta property="og:url" content="[^"]*">', f'<meta property="og:url" content="{canon}">', doc, count=1)
+            if doc != docs[u]:
+                docs[u] = doc
+                with open(paths[u], "w", encoding="utf-8") as f:
+                    f.write(doc)
+    # Any other page names itself as canonical (an older rule pointed some look-alike pages, such
+    # as kuhl02.htm and kuhl02.html, at each other).
+    for u in docs:
+        if u in dup_of or dedupe.STUB in docs[u] or u.startswith("/donnie(s)/") or u == "/404.html":
             continue
-        if u.endswith(".htm") and u + "l" in docs and similar(u, u + "l"):
-            a, b = u, u + "l"
-            keep = max((a, b), key=lambda x: (inbound[x], x.endswith(".htm")))
-            dup_of[b if keep == a else a] = keep
-        m = re.match(r"(.*?)(?: copy(?: \d+)?| \d| \(\d+\))(/.*)$", u)  # "folder copy/", "folder 2/", "folder (1)/" (Finder duplicates)
-        if m and m.group(1) + m.group(2) in docs and similar(u, m.group(1) + m.group(2)):
-            dup_of[u] = m.group(1) + m.group(2)
-        if u.startswith("/donnie(s)/") and "/" + u[len("/donnie(s)/"):] in docs:
-            dup_of[u] = "/" + u[len("/donnie(s)/"):]
-
-    def final(u):
-        seen = set()
-        while u in dup_of and u not in seen:
-            seen.add(u)
-            u = dup_of[u]
-        return u
-
-    for u in dup_of:
-        canon = E(site_url + canonical_path(final(u)))
+        canon = E(site_url + canonical_path(u))
         doc = re.sub(r'<link rel="canonical" href="[^"]*">', f'<link rel="canonical" href="{canon}">', docs[u], count=1)
         doc = re.sub(r'<meta property="og:url" content="[^"]*">', f'<meta property="og:url" content="{canon}">', doc, count=1)
         if doc != docs[u]:

@@ -8,7 +8,8 @@ A second check in November 2026 compared every page of both repos (13,091 pages 
 - 13,635 pages generated with 0 errors (1,062 of them AutoGallery galleries). Every old path is kept, lowercased, with `.asp` renamed to `.html`.
 - 28,286 of 28,387 referenced images display. Every one of the 92,978 backup files is accounted for (published, merged as an older duplicate, or deliberately skipped).
 - Text coverage is 99.74%. No page keeps less than 95% of its original words once navigation words are ignored.
-- Media no page shows has its own pages under `/unlisted/`.
+- Media no page shows has its own pages under `/unlisted/` (a file stored again under another name is shown once, and not there when a page shows its twin).
+- Duplicate pages (the `/donnie(s)/` mirror, `x.htm`/`x.html` twins, Finder copy folders, folders copied into other folders, draft names such as `indexx.html`, Images of the Day issues saved under two numbers) are kept once. Every other copy is a small redirect page at its old address, left out of hubs, the directory, search and the sitemap; anything a copy showed that the kept page lacked was added to it first. `tools/dedupe.py` does this at the end of the build, `tools/duplicates.tsv` holds the decisions made by hand, `tools/media_twins.tsv` the media stored twice, and `build/duplicates.json` lists the redirects and the near-copies left for a person to judge.
 - Flash files play in the browser through the Ruffle emulator. Old video formats are converted to MP4, with the originals kept for download.
 
 ## Deliberately skipped (515 files)

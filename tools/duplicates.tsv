@@ -1,0 +1,16 @@
+# Duplicate pages decided by hand (read by tools/dedupe.py at build time).
+# One line per page, tab-separated:
+#   <copy>	<kept page>   the copy becomes a redirect to the kept page (its extra content is merged in first)
+#   <page>	-             never turn this page into a redirect, whatever the rules find
+# Paths are site paths as written in site/ (folder index pages as /x/index.html).
+
+# The mocadigitalart.com front page saved again as a draft: /index.htm shows everything the draft
+# shows (the draft lacks one picture). Other front-page drafts (/indexx.html,
+# /autogallery/autogallery_allen/indexx.html) differ from every snapshot and are kept.
+/indexx.htm	/index.htm
+
+# Same text, but the pages name different artists: which one the text belongs to is for a person to say.
+/autogallery/autogallery_mccormack/comments.htm	-
+/autogallery2022/autogallery_levin/comments.htm	-
+/autogallery2020/autogallery_delgado/index.html	-
+/autogallery2020/autogallery_callado/index.html	-
