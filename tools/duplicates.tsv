@@ -4,13 +4,176 @@
 #   <page>	-             never turn this page into a redirect, whatever the rules find
 # Paths are site paths as written in site/ (folder index pages as /x/index.html).
 
-# The mocadigitalart.com front page saved again as a draft: /index.htm shows everything the draft
-# shows (the draft lacks one picture). Other front-page drafts (/indexx.html,
-# /autogallery/autogallery_allen/indexx.html) differ from every snapshot and are kept.
+# Decided by hand under the rule: a page whose content a visitor could not tell apart from
+# another page's is not a separate page.
+
 /indexx.htm	/index.htm
 
-# Same text, but the pages name different artists: which one the text belongs to is for a person to say.
-/autogallery/autogallery_mccormack/comments.htm	-
-/autogallery2022/autogallery_levin/comments.htm	-
-/autogallery2020/autogallery_delgado/index.html	-
-/autogallery2020/autogallery_callado/index.html	-
+# Drafts and second saves of a page beside it (front-page drafts, x.htm saved again as x.html): the
+# differences are dates, navigation or a few words; a passage the kept page lacks is merged into it.
+/indexx.html	/legacy/moca-home.html
+/autogallery/autogallery_allen/indexx.html	/legacy/moca-home-2022.html
+/adon/abril/index.htm	/index.htm
+/autogallery2023/autogalleryindex.htm	/autogallery2023/autogalleryindex.html
+/autogallery2023/autogallerysubmit.htm	/autogallerysubmit.html
+/donnie2020/autogallerysubmit.html	/autogallerysubmit.html
+/imofday/archive/about.htm	/imofday/archive/about.html
+/corkshow/cork.htm	/corkshow/cork.html
+/donnie2011/main.htm	/donnie2011/main.html
+
+# The /donnie(s)/ mirror and folders copied inside other folders. Where their pictures differ, the
+# copy's file is damaged or missing (see media_twins.tsv) or the picture is on another page already;
+# a picture shown nowhere else (Kaufman's jurgen/ copy) is merged into the kept page.
+/donnie(s)/donnie2009/pagesonline/page037.htm	/donnie2009/pagesonline/page037.htm
+/donnie(s)/donnie2009/pagesonline/page024.htm	/donnie2009/pagesonline/page024.htm
+/donnie(s)/donnie2020/exhibitpages/page002.htm	/donnie2020/exhibitpages/page002.htm
+/donnie(s)/donnie2020/exhibitpages/page001.htm	/donnie2020/exhibitpages/page001.htm
+/donnie(s)/donnie2020/exhibitpages/exhibitindex.htm	/donnie2020/exhibitpages/exhibitindex.htm
+/donnie(s)/donnie2020/exhibitpages/page003.htm	/donnie2020/exhibitpages/page003.htm
+/donnie(s)/donnie2010/exhibitpages/page012.htm	/donnie2010/exhibitpages/page012.htm
+/autogallery2014/autogallery2015/autogallery_levin/index.html	/autogallery2015/autogallery_levin/index.html
+/autogallery2014/autogallery2015/autogallery_feliciano/index.html	/autogallery2015/autogallery_feliciano/index.html
+/jurgen/kaufman_new/kaufman05.htm	/kaufman_new/kaufman05.htm
+/newmedia/miller_dennis/miller_dennis.htm	/miller_dennis/miller_dennis.htm
+/autogallery2013/autogallery2012/autogallery_ryzhakova/index.html	/autogallery2012/autogallery_ryzhakova/index.html
+/autogallery2013/autogallery2012/autogallery_jackson/index.html	/autogallery2012/autogallery_jackson/index.html
+/autogallery2013/autogallery2012/autogallery_clee/index.html	/autogallery2012/autogallery_clee/index.html
+/autogallery2013/autogallery2012/autogallery_deutsch/index.html	/autogallery2012/autogallery_deutsch/index.html
+/autogallery2013/autogallery2012/autogallery_nitychoruk/index.html	/autogallery2012/autogallery_nitychoruk/index.html
+/autogallery2013/autogallery2012/autogallery_lukas/index.html	/autogallery2012/autogallery_lukas/index.html
+/autogallery2013/autogallery2012/autogallery_galmitz/index.html	/autogallery2012/autogallery_galmitz/index.html
+/autogallery2013/autogallery2012/autogallery_nees/index.html	/autogallery2012/autogallery_nees/index.html
+/autogallery2013/autogallery2012/autogallery_rezyka/index.html	/autogallery2012/autogallery_rezyka/index.html
+/autogallery2013/autogallery2012/autogallery_morgan/index.html	/autogallery2012/autogallery_morgan/index.html
+/autogallery2013/autogallery2012/autogallery_drake/index.html	/autogallery2012/autogallery_drake/index.html
+/autogallery2013/autogallery2012/autogallery_rohlf/index.html	/autogallery2012/autogallery_rohlf/index.html
+/autogallery2013/autogallery2012/autogallery_cole/index.html	/autogallery2012/autogallery_cole/index.html
+/autogallery2013/autogallery2012/autogallery_mendelsberg/index.html	/autogallery2012/autogallery_mendelsberg/index.html
+/open/orfescu/orfescu/orfescu01.htm	/open/orfescu/orfescu01.htm
+/open/orfescu/orfescu/orfescu06.htm	/open/orfescu/orfescu06.htm
+/open/baker/baker.htm	/open/caldarola/baker/baker.htm
+/newmedia/loosenuhtz/loosenuhtz.htm	/digivid/loosenuhtz/loosenuhtz.htm
+
+# The same picture twice in a slide sequence: the repeat goes to its first showing; the exhibit
+# pager skips it.
+/atelierprogressif/pages/02.htm	/atelierprogressif/pages/01.htm
+/adon/digifoto/bb19.htm	/adon/digifoto/bb13.htm
+/adon/digifoto/bg08_19m.htm	/adon/digifoto/bg08_10m.htm
+/adon/digifoto/bg08_25m.htm	/adon/digifoto/bg08_10h.htm
+/adon/digifoto/bg08_19j.htm	/adon/digifoto/bg08_10a.htm
+
+# Near copies in other folders: the same page with other dates, prices, years or small wording.
+# Old 'Main galleries' index snapshots go to one; the artists only another snapshot lists are merged in.
+/aisign/indexx.html	/aisculpt/index.html
+/aiwestward/index.html	/aisculpt/index.html
+/hughson/indexx.html	/aisculpt/index.html
+/autogallery/autogallery_amen/index.html	/autogallery2011/autogallery_amen/index.html
+/autogallery/autogallery_hernandez/index.html	/autogallery2011/autogallery_hernandez/index.html
+/autogallery/autogallery_kuznetsov/index.html	/autogallery2011/autogallery_kuznetsov/index.html
+/autogallery/autogallery_scorupsky/index.html	/autogallery2011/autogallery_scorupsky/index.html
+/autogallery2017/autogallery_blank/index.html	/autogallery2016/autogallery_blank/index.html
+/autogallery2021/autogallery_blank/index.html	/autogallery2016/autogallery_blank/index.html
+/hornung1/index.html	/benshoshan2/index.html
+/hornung1/indexx.html	/benshoshan2/index.html
+/hourigan/indexx.html	/benshoshan2/index.html
+/autogallery/submitthanks.htm	/autogallery2023/submitthanks.htm
+/autogallery2011/submitthanks.htm	/autogallery2023/submitthanks.htm
+/autogallery2012/submitthanks.htm	/autogallery2023/submitthanks.htm
+/autogallery2013/submitthanks.htm	/autogallery2023/submitthanks.htm
+/autogallery2014/submitthanks.htm	/autogallery2023/submitthanks.htm
+/autogallery2015/submitthanks.htm	/autogallery2023/submitthanks.htm
+/autogallery2017/submitthanks.htm	/autogallery2023/submitthanks.htm
+/autogallery2018/submitthanks.htm	/autogallery2023/submitthanks.htm
+/autogallery2019/submitthanks.htm	/autogallery2023/submitthanks.htm
+/autogallery2020/submitthanks.htm	/autogallery2023/submitthanks.htm
+/autogallery2021/autogallery_tate/submitthanks.htm	/autogallery2023/submitthanks.htm
+/autogallery2021/submitthanks.htm	/autogallery2023/submitthanks.htm
+/autogallery2022/submitthanks.htm	/autogallery2023/submitthanks.htm
+/autogallery2024/autogallery_raftopoulos/submitthanks.htm	/autogallery2023/submitthanks.htm
+/donnie2018/thankyou.htm	/donnie2020/submitthanks.htm
+/donnie2019/thankyou.htm	/donnie2020/submitthanks.htm
+
+# Artists' comments saved again in other years: the earliest is kept; later additions are merged in.
+# The McCormack comments page shows Simon Levin's biography, so it goes to Levin's page.
+/autogallery/autogallery_mccormack/comments.htm	/autogallery2022/autogallery_levin/comments.htm
+/autogallery2017/autogallery_jalass/comments.htm	/autogallery2016/autogallery_jalass/comments.htm
+/autogallery2016/autogallery_jjblack/comments.htm	/autogallery2015/autogallery_black/comments.htm
+/autogallery2017/autogallery_jjblack/comments.htm	/autogallery2015/autogallery_black/comments.htm
+/autogallery2018/autogallery_jjblack/comments.htm	/autogallery2015/autogallery_black/comments.htm
+/autogallery2023/autogallery_shado/comments.htm	/autogallery2020/autogallery_shado/comments.htm
+/autogallery2021/autogallery_shado/comments.htm	/autogallery2020/autogallery_shado/comments.htm
+/autogallery2024/autogallery_shado/comments.htm	/autogallery2020/autogallery_shado/comments.htm
+/autogallery/autogallery_amen/comments.htm	/autogallery2011/autogallery_amen/comments.htm
+/autogallery2015/autogallery_topping/comments.htm	/autogallery2014/autogallery_topping/comments.htm
+/autogallery2021/autogallery_tate/comments.htm	/autogallery2020/autogallery_tate/comments.htm
+/autogallery/autogallery_reynolds/comments.htm	/autogallery2015/autogallery_reynolds/comments.htm
+/autogallery2023/autogallery_dancik/comments.htm	/autogallery2022/autogallery_dancik/comments.htm
+/autogallery2012/autogallery_jalass/comments.htm	/autogallery2011/autogallery_jalass/comments.htm
+/autogallery2021/autogallery_rafto/comments.htm	/autogallery2015/autogallery_rafto/comments.htm
+/autogallery2016/autogallery_rafto/comments.htm	/autogallery2015/autogallery_rafto/comments.htm
+/autogallery2019/autogallery_shah/comments.htm	/autogallery2018/autogallery_shah/comments.htm
+/autogallery2020/autogallery_shah/comments.htm	/autogallery2018/autogallery_shah/comments.htm
+/autogallery2024/autogallery_zinovyev/comments.htm	/autogallery2023/autogallery_zinovyev/comments.htm
+/autogallery2023/autogallery_grinberg/comments.htm	/autogallery2022/autogallery_grinberg/comments.htm
+/autogallery2024/autogallery_grinberg/comments.htm	/autogallery2022/autogallery_grinberg/comments.htm
+/autogallery/autogallery_gottlieb/comments.htm	/autogallery2011/autogallery_gottlieb/comments.htm
+/autogallery/autogallery_kuznetsov/comments.htm	/autogallery2011/autogallery_kuznetsov/comments.htm
+/autogallery2019/autogallery_estevez/comments.htm	/autogallery2018/autogallery_estevez/comments.htm
+/autogallery/autogallery_hernandez/comments.htm	/autogallery2011/autogallery_hernandez/comments.htm
+/autogallery2021/autogallery_delmas/comments.htm	/autogallery2015/autogallery_delmas/comments.htm
+/autogallery2017/autogallery_mccormack/comments.htm	/autogallery2015/autogallery_mccormack/comments.htm
+/autogallery/autogallery_erino/comments.htm	/autogallery2011/autogallery_erino/comments.htm
+/autogallery2017/autogallery_redfern/comments.htm	/autogallery2014/autogallery_redfern/comments.htm
+/autogallery2014/autogallery_fishbeyn/comments.htm	/autogallery2013/autogallery_fishbeyn/comments.htm
+/autogallery2015/autogallery_fishbeyn/comments.htm	/autogallery2013/autogallery_fishbeyn/comments.htm
+/autogallery2018/autogallery_kasparowitz/comments.htm	/autogallery2017/autogallery_kasparowitz/comments.htm
+/autogallery2012/autogallery_sharo/comments.htm	/autogallery2012/autogallery_acton/comments.htm
+/autogallery2020/autogallery_grinberg/comments.htm	/autogallery2019/autogallery_grinberg/comments.htm
+/autogallery2015/autogallery_meyer/comments.htm	/autogallery2014/autogallery_meyer/comments.htm
+/autogallery2015/autogallery_szekely/comments.htm	/autogallery2011/autogallery_szekely/comments.htm
+/autogallery2021/autogallery_simpson/comments.htm	/autogallery2016/autogallery_simpson/comments.htm
+/autogallery2020/autogallery_keogh/comments.htm	/autogallery2013/autogallery_keogh/comments.htm
+/autogallery/autogallery_hornung/comments.htm	/autogallery/autogallery_almang/comments.htm
+/autogallery2013/autogallery_blank/comments.htm	/autogallery2012/autogallery_blank/comments.htm
+/autogallery2017/autogallery_ciarcia/comments.htm	/autogallery2015/autogallery_ciarcia/comments.htm
+/autogallery/autogallery_scorupsky/comments.htm	/autogallery2011/autogallery_scorupsky/comments.htm
+
+# Contest forms and notices saved again: payment forms, thank-you pages, open-gallery indexes.
+/donnie2023/payform.htm	/donnie2024/payform.html
+/donnie2024/exhibitpages/payform.htm	/donnie2024/payform.html
+/donnie2018/paypal.htm	/donnie2020/paypal.htm
+/donnie2024/exhibitpages/main.htm	/donnie2024/main.htm
+/donnie2024/exhibitpages/exhibitpages/exhibitindex.htm	/donnie2024/exhibitpages/exhibitindex.htm
+/donnie2010/paythanks.htm	/donnie2011/paythanks.htm
+/donnie2011/paypalthanks.html	/donnie2011/paythanks.htm
+/adon/returnanim.htm	/donnie2003/returnanim.htm
+/donnie2016/pre2.htm	/donnie2016/pre3.htm
+/donnie2024/exhibitpages/catalog2023.htm	/donnie2024/catalog2023.htm
+/open/umemoto/unthanks.html	/open/unthanks.html
+/open/umemoto/unupload.htm	/open/unupload.htm
+/open/barnaby/opengallery.htm	/open/opengallery.htm
+/open/cleversley/opengallery.htm	/open/opengallery.htm
+/open/bauder/opengallery.htm	/open/opengallery.htm
+/open/turco/opengallery.htm	/open/opengallery.htm
+
+# Callado's gallery shows exactly the eleven pictures of Delgado's 'Flashlight Art' gallery (and
+# Callado's comments page says 'No comments'): one gallery, Delgado's.
+/autogallery2020/autogallery_callado/index.html	/autogallery2020/autogallery_delgado/index.html
+
+# Kept as separate pages: genuinely different content under similar addresses or wording
+# (entry-fee vs catalog payment form; different artworks; different winners; different picture sets).
+/donnie2009/paypal.htm	-
+/donnie2009/paypal.html	-
+/kuhlmann1/kuhl02.htm	-
+/kuhlmann1/kuhl02.html	-
+/donnie2022/exhibitpages/page007.htm	-
+/donnie2022/exhibitpages/page009.htm	-
+/donnie2022/exhibitpages/page010.htm	-
+/donnie2022/exhibitpages/page011.htm	-
+/donnie2022/exhibitpages/page012.htm	-
+/autogallery2015/autogallery_levin 2/index.html	-
+/autogallery2015/autogallery_levin/index.html	-
+/donnie2024/winners.htm	-
+/donnie2023/winners.htm	-
+/autogallery2013/autogallery_shrager1/index.html	-
+/autogallery2013/autogallery_shrager/index.html	-
