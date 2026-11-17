@@ -1,0 +1,242 @@
+{
+ "_about": "Media the 2024 backups lacked, recovered November 2026 (see docs/MIGRATION.md). 'aliases': an old page asked for a file at a path where it never existed, and the same file is already on the media server under another key; the page now shows that key (nothing to upload). 'files': recovered copies staged in the transfer folder (recovered/ + recovered-variants/, listed in recovered-map.tsv); build.py adds them to the file list and media info, so they must be uploaded first.",
+ "aliases": {
+  "adon/digifoto/hourigan/whisper.jpg": {
+   "to": "hourigan/whisper.jpg",
+   "why": "adon/digifoto/index.html is a copy of the 2024 home page; its relative image paths point at the top-level files"
+  },
+  "adon/digifoto/slide/dsc0029-jalearditti.jpg": {
+   "to": "slide/dsc0029-jalearditti.jpg",
+   "why": "adon/digifoto/index.html is a copy of the 2024 home page; its relative image paths point at the top-level files"
+  },
+  "adon/digifoto/slide/georgedaou-do8.gif": {
+   "to": "slide/georgedaou-do8.gif",
+   "why": "adon/digifoto/index.html is a copy of the 2024 home page; its relative image paths point at the top-level files"
+  },
+  "adon/digifoto/slide/horyma-mg 5000.jpg": {
+   "to": "slide/horyma-mg 5000.jpg",
+   "why": "adon/digifoto/index.html is a copy of the 2024 home page; its relative image paths point at the top-level files"
+  },
+  "adon/digifoto/slide/intheshed-davidacton.jpg": {
+   "to": "slide/intheshed-davidacton.jpg",
+   "why": "adon/digifoto/index.html is a copy of the 2024 home page; its relative image paths point at the top-level files"
+  },
+  "adon/digifoto/slide/jaimeaustinpaige-untitledstudyno710.gif": {
+   "to": "slide/jaimeaustinpaige-untitledstudyno710.gif",
+   "why": "adon/digifoto/index.html is a copy of the 2024 home page; its relative image paths point at the top-level files"
+  },
+  "adon/digifoto/slide/karolynemeth-ancestorsdimen.gif": {
+   "to": "slide/karolynemeth-ancestorsdimen.gif",
+   "why": "adon/digifoto/index.html is a copy of the 2024 home page; its relative image paths point at the top-level files"
+  },
+  "adon/digifoto/slide/russellstreur-levitation.jpg": {
+   "to": "slide/russellstreur-levitation.jpg",
+   "why": "adon/digifoto/index.html is a copy of the 2024 home page; its relative image paths point at the top-level files"
+  },
+  "adon/digifoto/slide/shannonharrigan_birdy.gif": {
+   "to": "slide/shannonharrigan_birdy.gif",
+   "why": "adon/digifoto/index.html is a copy of the 2024 home page; its relative image paths point at the top-level files"
+  },
+  "adon/digifoto/slide/thewarofauthorship-peterciccariello.jpg": {
+   "to": "slide/thewarofauthorship-peterciccariello.jpg",
+   "why": "adon/digifoto/index.html is a copy of the 2024 home page; its relative image paths point at the top-level files"
+  },
+  "adon/digifoto/slide/vincenzocorrado-walking.gif": {
+   "to": "slide/vincenzocorrado-walking.gif",
+   "why": "adon/digifoto/index.html is a copy of the 2024 home page; its relative image paths point at the top-level files"
+  },
+  "adon/digifoto/slide/yurikabisher-expanding.gif": {
+   "to": "slide/yurikabisher-expanding.gif",
+   "why": "adon/digifoto/index.html is a copy of the 2024 home page; its relative image paths point at the top-level files"
+  },
+  "aiartsake27/anonymous gentleman 2.jpg": {
+   "to": "aiartsake15/aiartsake27/anonymous gentleman 2.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/anonymous gentleman 3.jpg": {
+   "to": "aiartsake15/aiartsake27/anonymous gentleman 3.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/anonymous gentleman 4.jpg": {
+   "to": "aiartsake15/aiartsake27/anonymous gentleman 4.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/anonymous gentleman 5.jpg": {
+   "to": "aiartsake15/aiartsake27/anonymous gentleman 5.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/anonymous lady 1.jpg": {
+   "to": "aiartsake15/aiartsake27/anonymous lady 1.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/anonymous lady 2.jpg": {
+   "to": "aiartsake15/aiartsake27/anonymous lady 2.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/anonymous lady 3.jpg": {
+   "to": "aiartsake15/aiartsake27/anonymous lady 3.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/anonymous lady 4.jpg": {
+   "to": "aiartsake15/aiartsake27/anonymous lady 4.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/anonymous lady 5.jpg": {
+   "to": "aiartsake15/aiartsake27/anonymous lady 5.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/august 1.jpg": {
+   "to": "aiartsake15/aiartsake27/august 1.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/august 10.jpg": {
+   "to": "aiartsake15/aiartsake27/august 10.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/august 3.jpg": {
+   "to": "aiartsake15/aiartsake27/august 3.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/august 4.jpg": {
+   "to": "aiartsake15/aiartsake27/august 4.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/august 5.jpg": {
+   "to": "aiartsake15/aiartsake27/august 5.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/august 6.jpg": {
+   "to": "aiartsake15/aiartsake27/august 6.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/august 7.jpg": {
+   "to": "aiartsake15/aiartsake27/august 7.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/august 8.jpg": {
+   "to": "aiartsake15/aiartsake27/august 8.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/august 9.jpg": {
+   "to": "aiartsake15/aiartsake27/august 9.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/boy & girl twins 1.jpg": {
+   "to": "aiartsake15/aiartsake27/boy & girl twins 1.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/boy & girl twins 10.jpg": {
+   "to": "aiartsake15/aiartsake27/boy & girl twins 10.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/boy & girl twins 2.jpg": {
+   "to": "aiartsake15/aiartsake27/boy & girl twins 2.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/boy & girl twins 3.jpg": {
+   "to": "aiartsake15/aiartsake27/boy & girl twins 3.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/boy & girl twins 4.jpg": {
+   "to": "aiartsake15/aiartsake27/boy & girl twins 4.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/boy & girl twins 5.jpg": {
+   "to": "aiartsake15/aiartsake27/boy & girl twins 5.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/boy & girl twins 6.jpg": {
+   "to": "aiartsake15/aiartsake27/boy & girl twins 6.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/boy & girl twins 7.jpg": {
+   "to": "aiartsake15/aiartsake27/boy & girl twins 7.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/boy & girl twins 8.jpg": {
+   "to": "aiartsake15/aiartsake27/boy & girl twins 8.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/boy & girl twins 9.jpg": {
+   "to": "aiartsake15/aiartsake27/boy & girl twins 9.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/buddha 10.jpg": {
+   "to": "aiartsake15/aiartsake27/buddha 10.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/clock tower 1.jpg": {
+   "to": "aiartsake15/aiartsake27/clock tower 1.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/clock tower 10.jpg": {
+   "to": "aiartsake15/aiartsake27/clock tower 10.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/clock tower 2.jpg": {
+   "to": "aiartsake15/aiartsake27/clock tower 2.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/clock tower 4.jpg": {
+   "to": "aiartsake15/aiartsake27/clock tower 4.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/clock tower 5.jpg": {
+   "to": "aiartsake15/aiartsake27/clock tower 5.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/clock tower 6.jpg": {
+   "to": "aiartsake15/aiartsake27/clock tower 6.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/clock tower 7.jpg": {
+   "to": "aiartsake15/aiartsake27/clock tower 7.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/clock tower 8.jpg": {
+   "to": "aiartsake15/aiartsake27/clock tower 8.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "aiartsake27/clock tower 9.jpg": {
+   "to": "aiartsake15/aiartsake27/clock tower 9.jpg",
+   "why": "the aiartsake27 folder was uploaded inside aiartsake15/"
+  },
+  "midi/bicycle.mid": {
+   "to": "adon/midi/bicycle.mid",
+   "why": "the Don Archer pages' ../../midi/ folder is adon/midi/"
+  },
+  "midi/da01.mid": {
+   "to": "adon/midi/da01.mid",
+   "why": "the Don Archer pages' ../../midi/ folder is adon/midi/"
+  },
+  "midi/da03.mid": {
+   "to": "adon/midi/da03.mid",
+   "why": "the Don Archer pages' ../../midi/ folder is adon/midi/"
+  },
+  "midi/da04.mid": {
+   "to": "adon/midi/da04.mid",
+   "why": "the Don Archer pages' ../../midi/ folder is adon/midi/"
+  },
+  "midi/da05.mid": {
+   "to": "adon/midi/da05.mid",
+   "why": "the Don Archer pages' ../../midi/ folder is adon/midi/"
+  },
+  "midi/da06.mid": {
+   "to": "adon/midi/da06.mid",
+   "why": "the Don Archer pages' ../../midi/ folder is adon/midi/"
+  },
+  "midi/dayenu.mid": {
+   "to": "adon/midi/dayenu.mid",
+   "why": "the Don Archer pages' ../../midi/ folder is adon/midi/"
+  },
+  "midi/haysjohn.mid": {
+   "to": "adon/midi/haysjohn.mid",
+   "why": "the Don Archer pages' ../../midi/ folder is adon/midi/"
+  },
+  "midi/london.mid": {
+   "to": "adon/midi/london.mid",
+   "why": "the Don Archer pages' ../../midi/ folder is adon/midi/"
+  }
+ },
+ "files": {}
+}

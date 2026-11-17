@@ -85,6 +85,7 @@ class Ctx:
         self.dir = posixpath.dirname(page_path)
         self.exists = exists             # callable(lowercase path) -> bool
         self.autogalleries = autogalleries  # set of folder paths that are AutoGallery galleries
+        self.aliases = {}                # missing media path -> the same file under another path (recovered_media.json)
         self.dropped = []
         self.links_out = []
         self.images = []
@@ -168,6 +169,8 @@ def norm_internal(target, ctx):
         return ("missing", "/" + path + "/")
     if ctx.exists(path):
         return ("media", path)
+    if path in ctx.aliases:
+        return ("media", ctx.aliases[path])
     return ("missing", "/" + path)
 
 

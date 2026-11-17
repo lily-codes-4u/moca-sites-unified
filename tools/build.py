@@ -51,6 +51,18 @@ if os.path.exists(MEDIA_JSON):
     with open(MEDIA_JSON) as f:
         MEDIA = json.load(f)
 
+# Media the 2024 backups lacked (see tools/recovered_media.json and docs/MIGRATION.md):
+# "files" were recovered and are uploaded from the transfer folder's recovered-map.tsv and
+# recovered-variants/ (DEPLOY.md step 3.6), so they count as present like any backup file;
+# "aliases" send a path an old page asked for, where the file never existed, to the same file
+# already on the media server.
+with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "recovered_media.json"), encoding="utf-8") as f:
+    RECOVERED = json.load(f)
+for _k, _v in RECOVERED["files"].items():
+    FILES.setdefault(_k, {"orig": _v["orig"]})
+    MEDIA.setdefault(_k, {x: _v[x] for x in ("w", "h", "variants", "type", "animated") if x in _v})
+MEDIA_ALIASES = {k: v["to"] for k, v in RECOVERED["aliases"].items()}
+
 
 def published(p):
     """False for files that are not published as pages (see classify_pages), so links to them
@@ -215,6 +227,7 @@ def build_page(p, ags):
     text = legacy.resolve_includes(text, p, read)
     text = legacy.clean_asp(text)
     ctx = legacy.Ctx(p, exists, set(ags))
+    ctx.aliases = MEDIA_ALIASES
     ctx.dims = lambda v: (MEDIA[v]["w"], MEDIA[v]["h"]) if (MEDIA.get(v) or {}).get("w") and (MEDIA.get(v) or {}).get("h") else None
     parsed = legacy.parse(text, ctx)
     for im in ctx.images:
@@ -279,6 +292,7 @@ def build_autogallery(folder, index_path):
         stem = posixpath.splitext(posixpath.basename(FILES[p]["orig"]))[0]
         items.append({"n": i, "src": p, "caption": stem.replace("_", " ")})
     ctx = legacy.Ctx(index_path, exists, set())
+    ctx.aliases = MEDIA_ALIASES
     header = legacy.parse("<body>" + cfg.get("PageHeader", "") + "</body>", ctx)
     message = legacy.parse("<body>" + cfg.get("PageMessage", "") + "</body>", ctx)
     title = re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", cfg.get("PageTitle", "")))).strip()
