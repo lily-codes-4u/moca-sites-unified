@@ -46,6 +46,14 @@ Create the records as **DNS only** (grey cloud) first, so GitHub can check the d
        --variants ~/Code/moca-media-variants
    ```
    Object keys are the old site paths in lowercase (for example `autogallery2023/autogallery_doodles/doodle 01.jpg`), next to their generated `…w480.webp`, `…w1600.webp`, `….mp4` and `….poster.webp` versions.
+6. Upload the files recovered after the backups were made (listed in `tools/recovered_media.json`, staged in the transfer folder as `recovered/`, `recovered-variants/` and `recovered-map.tsv`). Their map paths are relative to the transfer folder, hence `--home`:
+   ```sh
+   python3 tools/upload_r2.py --bucket moca-media \
+       --map ~/Code/moca-sites-unified-transfer/recovered-map.tsv \
+       --home ~/Code/moca-sites-unified-transfer \
+       --variants ~/Code/moca-sites-unified-transfer/recovered-variants
+   ```
+   Pages only show these files from the commit that adds them to `tools/recovered_media.json` on, so upload before merging it.
 
 ## 4. Old domains and old links
 

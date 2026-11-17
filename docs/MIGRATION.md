@@ -8,7 +8,8 @@ A second check in November 2026 compared every page of both repos (13,091 pages 
 - 13,635 pages generated with 0 errors (1,062 of them AutoGallery galleries). Every old path is kept, lowercased, with `.asp` renamed to `.html`.
 - 28,286 of 28,387 referenced images display. Every one of the 92,978 backup files is accounted for (published, merged as an older duplicate, or deliberately skipped).
 - Text coverage is 99.74%. No page keeps less than 95% of its original words once navigation words are ignored.
-- Media no page shows has its own pages under `/unlisted/`.
+- Media no page shows has its own pages under `/unlisted/` (a file stored again under another name is shown once, and not there when a page shows its twin).
+- Duplicate pages (the `/donnie(s)/` mirror, `x.htm`/`x.html` twins, Finder copy folders, folders copied into other folders, draft names such as `indexx.html`, Images of the Day issues saved under two numbers) are kept once. Every other copy is a small redirect page at its old address, left out of hubs, the directory, search and the sitemap; anything a copy showed that the kept page lacked was added to it first. `tools/dedupe.py` does this at the end of the build, `tools/duplicates.tsv` holds the decisions made by hand, `tools/media_twins.tsv` the media stored twice, and `build/duplicates.json` lists the redirects and the near-copies left for a person to judge.
 - Flash files play in the browser through the Ruffle emulator. Old video formats are converted to MP4, with the originals kept for download.
 
 ## Deliberately skipped (515 files)
@@ -23,6 +24,14 @@ The list is in `build/skipped.json`.
 - About 86 media files are corrupt or cannot be decoded.
 - 3,336 old image references point to files that are not in any backup.
 - 28 internal links still point to retired login and guestbook scripts.
+
+## Recovered later (November 2026)
+Every page of both live repos was re-parsed with `tools/legacy.py` to list the images, videos and sounds a page asks for that the media server lacks (168 file paths, 1,036 page references; the 3,336 above also counts backup-only pages and repeats). The repos, the live sites and the media server were then searched for each file; the Internet Archive could not be reached from the build machine.
+- 36 are on the server already under a name with doubled or leading spaces and are shown in their AutoGalleries; 10 are digivid MP4 re-encodes the site replaces with its own MP4s.
+- 59 are aliased in `tools/recovered_media.json` to the same file already on the server: 40 AI images of the day 79-83 (the `aiartsake27` folder was uploaded inside `aiartsake15/`), 12 artworks on the copy of the 2024 home page in `adon/digifoto/`, and 9 MIDI tunes of the Don Archer photo pages (in `adon/midi/`). They now show on 23 pages and left the unlisted-files pages.
+- 4 AutoGallery images missing from their folders (David E. Tate 2021, Leonard Zinovyev 2023; the iCloud placeholders above) were restored from the same artists' 2020 and 2024 galleries, and the mocadigitalart.com logo `mocalogo1.gif` from its repo. These are uploaded separately (DEPLOY.md, step 3.6).
+- Not restored on purpose: spacer lines (`vertlinegrey.gif`, about 800 pages), `blank.jpg`, logos, buttons and banners that only exist for other years or folders (they would replace an artwork's page layout with decoration), and same-named files from other contest years or folders that are different pictures (Donnie 2017 images 044-056, the false-color essay's figures).
+- Still missing: 26 referenced files exist nowhere (among them 6 AI images of the day, 8 AutoGallery images used by Images of the Day 30-61, 3 MIDI tunes), plus the 12 different-picture cases above, and 80 files on the server are empty (17) or undecodable with no other copy. The Internet Archive is the remaining source for both.
 
 ## Quality checks
 - Browser QA found 0 JavaScript errors and no horizontal overflow on phones. The lightbox, slideshow, search, menu, Flash player and old-URL redirects all work.
