@@ -36,6 +36,8 @@ FINDER = re.compile(r"(.*?)(?: copy(?: \d+)?| \d| \(\d+\))(/.*)$")  # "folder co
 COPY_SUFFIX = re.compile(r"^(.{3,}?)(x+|ok|-?orig(?:inal)?|old|a|\d)$")  # indexx, contestindexok, atelier2020-original, moss01a, reception1
 URL_SAFE = "/~()&+,;=:@!$'*-._"
 STUB = '<meta name="moca-duplicate-of"'
+# bank and payment details from old pay pages are never copied onto another page
+PAYMENT = re.compile(r"\b(aba|routing|swift|iban|acct\.?|account no)\b|\bchas us\b", re.I)
 NAV_LINK = re.compile(r"^(back|next|previous|prev|return|go to|moca home|home|top|contest info|view all|catalog|click\b|got attitude)\b|\b(index|home|logo)$|directors?( s)? choice|artists?( s)? names?|alphabetical order|not (yet )?(been )?(fully )?populated")
 
 
@@ -366,7 +368,7 @@ def merge(keep_doc, dup_doc, ident, elsewhere=frozenset()):
                 extra.append(blk)
             continue
         new_words = [w for w in ws if w not in have_words and not w.isdigit()]
-        if len(new_words) >= 4 and len(new_words) >= 0.25 * len(ws) and not NAV_LINK.search(" ".join(ws)):
+        if len(new_words) >= 4 and len(new_words) >= 0.25 * len(ws) and not NAV_LINK.search(" ".join(ws)) and not PAYMENT.search(blk):
             # a passage the kept page lacks, not a changed number, date, price or a few words
             extra.append(blk)
             have_words |= set(ws)
