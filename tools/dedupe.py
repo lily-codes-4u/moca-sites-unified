@@ -36,7 +36,7 @@ FINDER = re.compile(r"(.*?)(?: copy(?: \d+)?| \d| \(\d+\))(/.*)$")  # "folder co
 COPY_SUFFIX = re.compile(r"^(.{3,}?)(x+|ok|-?orig(?:inal)?|old|a|\d)$")  # indexx, contestindexok, atelier2020-original, moss01a, reception1
 URL_SAFE = "/~()&+,;=:@!$'*-._"
 STUB = '<meta name="moca-duplicate-of"'
-NAV_LINK = re.compile(r"^(back|next|previous|prev|return|go to|moca home|home|top|contest info|view all|catalog)\b|\b(index|home|logo)$|directors?( s)? choice|artist name|not (yet )?(been )?(fully )?populated")
+NAV_LINK = re.compile(r"^(back|next|previous|prev|return|go to|moca home|home|top|contest info|view all|catalog|click\b|got attitude)\b|\b(index|home|logo)$|directors?( s)? choice|artists?( s)? names?|alphabetical order|not (yet )?(been )?(fully )?populated")
 
 
 def canonical_path(url):
@@ -317,6 +317,9 @@ def find(docs, ident=None, overrides=None):
             seen.add(t)
             t = dup_of[t]
         dup_of[u] = t
+    # pairs decided since (one redirects to the other, or a person kept both) are not left for a person
+    notes = [n for n in notes if dup_of.get(n[1], n[1]) != dup_of.get(n[2], n[2])
+             and not (n[1] in keep and n[2] in keep)]
     return dup_of, notes
 
 
@@ -326,8 +329,9 @@ def _blocks(body):
     return re.findall(r'<figure\b.*?</figure>|<(p|h2|h3|li|blockquote)\b[^>]*>.*?</\1>|<div class="b media">.*?</div>', body, re.S)
 
 
-def merge(keep_doc, dup_doc, ident):
-    """Add to the kept page the pictures and passages of a copy that it does not show yet."""
+def merge(keep_doc, dup_doc, ident, elsewhere=frozenset()):
+    """Add to the kept page the pictures and passages of a copy that it does not show yet. Pictures
+    another page of the site already shows (elsewhere: their identities) are not added again."""
     kbody = content(keep_doc)
     have_media = {ident(k) for k in media_keys(kbody)}
     have_words = set(words_of(kbody))
@@ -337,7 +341,7 @@ def merge(keep_doc, dup_doc, ident):
         blk = m.group(0)
         ms = {ident(k) for k in media_keys(blk)}
         if ms:
-            if not ms <= have_media:
+            if ms - have_media - elsewhere:
                 extra.append(blk)
                 have_media |= ms
             continue
@@ -355,8 +359,15 @@ def merge(keep_doc, dup_doc, ident):
                     have_words |= set(aw)
             if linked_new:
                 extra.append('<p class="links">' + "<br>".join(adds) + "</p>")
+            elif (adds and "<b>" in blk and "<a " not in blk and 'class="links"' not in blk
+                  and len(re.findall(r'<span class="dead"', blk)) <= 4):
+                # a short entry whose pages were lost (an artist and the titles of the works entered):
+                # kept whole, with the artist's name
+                extra.append(blk)
             continue
-        if len([w for w in ws if w not in have_words]) >= 4 and not NAV_LINK.search(" ".join(ws)):  # more than a changed number or date; no notices
+        new_words = [w for w in ws if w not in have_words and not w.isdigit()]
+        if len(new_words) >= 4 and len(new_words) >= 0.25 * len(ws) and not NAV_LINK.search(" ".join(ws)):
+            # a passage the kept page lacks, not a changed number, date, price or a few words
             extra.append(blk)
             have_words |= set(ws)
     if not extra:
@@ -402,11 +413,18 @@ def apply(out, docs, dup_of, site_url, css="/assets/site.css", ident=None):
     returns (paths whose file changed, [(copy, kept page)] where the kept page took content from the copy)."""
     ident = ident or media_identity()
     changed, merged = set(), []
+    elsewhere = set()
+    for u, d in docs.items():
+        if u not in dup_of and not GENERATED.match(u) and STUB not in d:
+            elsewhere |= {ident(k) for k in media_keys(content(d))}
+    # where each copy's exhibit pager led, so a sequence that loses a page skips over it
+    hops = {u: link_target(m.group(1)) for u in dup_of if u in docs
+            for m in [re.search(r'<a class="pill next" href="(/[^"]*)"', docs[u])] if m}
     # 1. merge: the kept page gets whatever a copy showed that it lacks
     for u in sorted(dup_of):
         t = dup_of[u]
         if t in docs and stub_target(docs[u]) is None:
-            new = merge(docs[t], docs[u], ident)
+            new = merge(docs[t], docs[u], ident, elsewhere)
             if new != docs[t]:
                 docs[t] = new
                 changed.add(t)
@@ -423,7 +441,7 @@ def apply(out, docs, dup_of, site_url, css="/assets/site.css", ident=None):
     for u in sorted(docs):
         if u in dup_of:
             continue
-        new = fix_links(docs[u], dup_of, GENERATED.match(u))
+        new = fix_links(docs[u], dup_of, GENERATED.match(u), u, hops)
         if new != docs[u]:
             docs[u] = new
             changed.add(u)
@@ -435,7 +453,7 @@ def apply(out, docs, dup_of, site_url, css="/assets/site.css", ident=None):
     return changed, merged
 
 
-def fix_links(doc, dup_of, generated):
+def fix_links(doc, dup_of, generated, page=None, hops=None):
     if generated:
         def card(m):  # a copy's card on a hub that already has a card for the kept page: drop it
             t = dup_of.get(link_target(m.group(1)))
@@ -454,6 +472,26 @@ def fix_links(doc, dup_of, generated):
             return m.group(0)
         frag = "#" + h.split("#", 1)[1] if "#" in h else ""
         return f'{m.group(1)}"{E(canonical_path(t))}{frag}"'
+
+    def pill(m):
+        # an exhibit pager link to a copy of this very page, or to a repeat of an earlier page of the
+        # same sequence: "next" goes on to where the copy led; any other pill to this page is dropped
+        t = dup_of.get(link_target(m.group(2)))
+        if not t or (t != page and not ("next" in m.group(1) and _series(link_target(m.group(2)), t))):
+            return m.group(0)
+        if "next" not in m.group(1):
+            return ""
+        seen, h = set(), link_target(m.group(2))
+        while h in dup_of and h not in seen and (dup_of[h] == page or _series(h, dup_of[h])):
+            seen.add(h)
+            h = (hops or {}).get(h)
+            if not h:
+                return ""
+        if h == page or dup_of.get(h, h) == page:
+            return ""
+        return m.group(0).replace(f'href="{m.group(2)}"', f'href="{E(canonical_path(h))}"', 1)
+    if page:
+        doc = re.sub(r'<a (class="pill[^"]*") href="(/[^"]*)">.*?</a>', pill, doc, flags=re.S)
     return re.sub(r'(<a [^>]*?href=)"(/[^"]*)"', href, doc)
 
 
