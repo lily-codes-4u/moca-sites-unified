@@ -153,6 +153,10 @@ def series(folder):
     return "u " + folder, (1, 10 ** 6, folder), None, True  # named later: Untitled set A, B, ...
 
 
+# MIDI files of well-known pieces by other composers/bands (not Don's work).
+THIRD_PARTY_MIDI = {"BLACKDOG.MID", "CORIOLAN.MID"}
+
+
 def prepare(new_art, new_other, data=DATA, map_path=MAP):
     rows = list(csv.DictReader(open(new_art, encoding="utf-8"), delimiter="\t"))
     skipped = Counter()
@@ -218,6 +222,8 @@ def prepare(new_art, new_other, data=DATA, map_path=MAP):
     other_skip = Counter()
     for r in others:
         p = r["path"]
+        if p.rsplit("/", 1)[-1].upper() in THIRD_PARTY_MIDI:
+            continue
         if r["class"] in ("audio", "video") and not p.startswith("website files archive/"):
             out.append({"section": "media", "group": r["class"], "label": "Music" if r["class"] == "audio" else "Video",
                         "kind": r["class"], "source": p, "width": "", "height": "", "bytes": r["bytes"], "caption": ""})
