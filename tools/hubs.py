@@ -171,13 +171,18 @@ def build_all(results, files, media, media_url, write, site_url):
             body += f'<h2 class="sec">{E(name)}</h2><div class="cards">{"".join(card(p, used=ai_used, reserved=ai_own) for p in ps)}</div>'
     hub("/ai.html", "AI Art", body, "c5", "Don Archer's AI art collections, portraits and exhibits.", "/ai.html")
 
+    # ---------------------------------------------------------- Don Archer Studio Archive (studio.py)
+    import studio
+    st = studio.build(write, site_url)
+    ctx["studio"] = st
+
     # ---------------------------------------------------------- Collection
     used, also = set(), [p for p in ("autogalleryarchive.htm", "grandmasters.htm", "mocanet/mocalist.htm", "editorial/editorial.htm", "adon/abase.asp", "digivid/brown_valleys.htm") if p in by_path]
     own = own_pics([p for _, p in GALLERIES + GRANDMASTERS] + also)
     body = '<div class="cards">' + "".join(card(p, t, "Gallery", used, own) for t, p in GALLERIES) + "</div>"
     body += '<h2 class="sec">Grandmasters</h2><div class="cards">' + "".join(card(p, n, "Grandmaster", used, own) for n, p in GRANDMASTERS) + "</div>"
     body += ('<h2 class="sec">Also in the collection</h2><div class="cards">'
-             + "".join(card(p, used=used, reserved=own) for p in also)
+             + "".join(card(p, used=used, reserved=own) for p in also) + st["card"]
              + "</div>")
     hub("/collection.html", "The collection", body, "c1", "Browse MOCA's galleries: photo-based, drawn, 3D, fractal, mixed, surreal, video and more.", "/collection.html")
 
@@ -244,7 +249,7 @@ def build_all(results, files, media, media_url, write, site_url):
     legacy_homes = "".join(f'<a href="{u}">{t}</a><br>' for u, t in (("/index.htm", "mocadigitalart.com front page (2024)"), ("/legacy/moca-home.html", "Original MOCA front page (2024)")))
     body = (f'<div class="b prose"><p>Archives, indexes and catalogs from both former MOCA websites. For a list of absolutely every page, see the <a href="/directory/">directory</a>.</p>'
             f'<p class="links">{legacy_homes}<a href="/unlisted/">Unlisted files (shown on no page)</a></p></div>'
-            f'<div class="cards">{"".join(card(p, used=arch_used, reserved=own_pics(arch)) for p in arch)}</div>'
+            f'<div class="cards">{"".join(card(p, used=arch_used, reserved=own_pics(arch)) for p in arch)}{st["card"]}</div>'
             f'<h2 class="sec">AutoGallery, {len(ag)} galleries</h2><div class="cols">{ag_html}</div>')
     hub("/archive.html", "Archive", body, "c3", "MOCA archives: AutoGallery, the Donnie, catalogs, images of the day, editorial.", "/archive.html")
 
@@ -261,7 +266,7 @@ def build_all(results, files, media, media_url, write, site_url):
     # ---------------------------------------------------------- Home
     build_home(ctx, write, years, card)
     build_404(write, results, files, site_url)
-    return extra
+    return extra + st["pages"]
 
 
 def build_unlisted(results, media, media_url, write, site_url):
@@ -355,7 +360,8 @@ def build_home(ctx, write, years, card):
              f'<div class="list"><h2>The Donnie</h2>' + "".join(f'<a href="/donnie.html#y{y}">Donnie {y}<span>exhibit</span></a>' for y in years[:6]) + '<a href="/catalogs.htm">All catalogs<span>Blurb</span></a></div>'
              '<div class="list"><h2>Grandmasters</h2>' + "".join(f'<a href="/{p if p.endswith("/") else by_path[p]["url"].lstrip("/") if p in by_path else p}">{E(n)}<span>Grandmaster</span></a>' for n, p in GRANDMASTERS[:7]) + '<a href="/grandmasters.htm">All grandmasters<span>17</span></a></div>'
              '<div class="list"><h2>Archives</h2><a href="/autogalleryarchive.htm">AutoGallery archive<span>2008–2024</span></a><a href="/donniearchive.htm">Donnie archive<span></span></a>'
-             '<a href="/imageofthedayindex.htm">Images of the Day<span></span></a><a href="/editorial/editorial.htm">Reviews &amp; essays<span></span></a><a href="/mocanet/mocalist.htm">MOCAnet artist sites<span></span></a><a href="/directory/">Every page, A to Z<span></span></a></div></div>')
+             '<a href="/imageofthedayindex.htm">Images of the Day<span></span></a><a href="/editorial/editorial.htm">Reviews &amp; essays<span></span></a><a href="/mocanet/mocalist.htm">MOCAnet artist sites<span></span></a><a href="/directory/">Every page, A to Z<span></span></a>'
+             + (f'<a href="/studio/">Don Archer Studio Archive<span>{ctx["studio"]["years"]}</span></a>' if ctx.get("studio") else "") + '</div></div>')
     body = hero + galleries + dc_html + lists
     html_ = T.head("MOCA · Museum of Computer Art", "/", "The Museum of Computer Art: digital fine art since 1993. Galleries, AI art, the Donnie contest and decades of archives, free to view.",
                    media_url(feat_img, "1600") if feat_img else None, ctx["site_url"],

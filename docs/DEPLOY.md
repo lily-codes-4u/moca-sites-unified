@@ -54,6 +54,12 @@ Create the records as **DNS only** (grey cloud) first, so GitHub can check the d
        --variants ~/Code/moca-sites-unified-transfer/recovered-variants
    ```
    Pages only show these files from the commit that adds them to `tools/recovered_media.json` on, so upload before merging it.
+7. Upload the Don Archer Collection media (the `/studio/` archive and anything else under the `dac/` key prefix). `tools/dac_media.py` reads the `tools/dac-media-*.tsv` maps, makes the WebP/MP4 versions from the collection folder and uploads originals and versions; add `--dry-run` first. It is safe to stop and re-run:
+   ```sh
+   pip3 install Pillow boto3   # and brew install ffmpeg, for the one video
+   python3 tools/dac_media.py --bucket moca-media --root "<path to Don Archer Collection>" \
+       --out ~/Code/dac-media-variants tools/dac-media-*.tsv
+   ```
 
 ## 4. Old domains and old links
 
