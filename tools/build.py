@@ -6,6 +6,9 @@ Inputs (see README):
   MOCA_MERGED_JSON  merged.json describing every file and where it came from
   MOCA_MEDIA_JSON   media.json from the media pipeline (sizes, variants)
   MOCA_MEDIA_BASE   URL prefix for media files (default https://media.museumofcomputerart.org)
+  MOCA_DAC      optional: the folder with the Don Archer Collection's extracted "website files
+                archive" (webarchive/, inventory.tsv, website-archive-pages.tsv); its new pages
+                are added by tools/webarchive.py
 Output:
   site/   ready to publish (GitHub Pages)
   build/  reports used by the verification checks
@@ -44,8 +47,10 @@ DRAFT_EXT = re.compile(r"\.(htmx+|htmlx+|aspxx+|htmxxxx|htmm|assp|aspng)$")
 # Pages planted on the old server by spammers (replica-watch ads); not on either live site.
 SPAM_PAGES = re.compile(r"^adon/anim/(anim/)?1245\.(asp|html?)$")
 
-with open(MERGED_JSON) as f:
-    FILES = json.load(f)
+FILES = {}
+if os.path.exists(MERGED_JSON):  # absent when another tool (webarchive.py) only imports the helpers
+    with open(MERGED_JSON) as f:
+        FILES = json.load(f)
 MEDIA = {}
 if os.path.exists(MEDIA_JSON):
     with open(MEDIA_JSON) as f:
@@ -354,6 +359,10 @@ def main():
     ok += extra
     T.write_assets(OUT, ROOT)
     T.write_meta(OUT, ok, SITE_URL, write)
+    if os.environ.get("MOCA_DAC"):
+        # pages from the Don Archer Collection's "website files archive" (see tools/webarchive.py)
+        import webarchive
+        webarchive.apply(OUT, os.environ["MOCA_DAC"])
     with open(os.path.join(REPORT, "pages.json"), "w") as f:
         json.dump(ok, f)
     with open(os.path.join(REPORT, "skipped.json"), "w") as f:
