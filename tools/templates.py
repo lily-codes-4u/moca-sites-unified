@@ -429,16 +429,14 @@ WEB_IMAGE = (".jpg", ".jpeg", ".gif", ".png", ".bmp", ".webp", ".svg", ".avif", 
 
 
 def view_url(path, media, media_url):
-    """The file the image viewer (lightbox, slideshow) shows: the 1600px WebP when there is one,
-    the original when it is animated or a format browsers display, else the largest WebP made
-    from it (Photoshop, TIFF and misnamed files cannot be shown by a browser)."""
+    """The file the image viewer (lightbox, slideshow) shows: the original whenever it is a format
+    browsers display (highest quality; the viewer only loads it on click), else the largest WebP
+    made from it (Photoshop, TIFF and misnamed files cannot be shown by a browser)."""
     m = media.get(path) or {}
     var = m.get("variants") or {}
-    if var.get("1600") and not m.get("animated"):
-        return media_url(path, "1600")
     if m.get("animated") or path.lower().endswith(WEB_IMAGE):
         return media_url(path)
-    for v in ("800", "480"):
+    for v in ("1600", "800", "480"):
         if var.get(v):
             return media_url(path, v)
     return media_url(path)
