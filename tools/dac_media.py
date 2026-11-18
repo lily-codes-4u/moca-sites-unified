@@ -83,7 +83,8 @@ def _fresh(out, src):
 
 
 def _open_rgb(path):
-    from PIL import Image
+    from PIL import Image, ImageFile
+    ImageFile.LOAD_TRUNCATED_IMAGES = True  # old floppy files often lose a few bytes at the end
     Image.MAX_IMAGE_PIXELS = None
     im = Image.open(path)
     try:
@@ -99,7 +100,8 @@ def _open_rgb(path):
 def make_image(job):
     """job: (source path, output stem). Returns (made, error)."""
     src, stem = job
-    from PIL import Image
+    from PIL import Image, ImageFile
+    ImageFile.LOAD_TRUNCATED_IMAGES = True  # old floppy files often lose a few bytes at the end
     try:
         Image.MAX_IMAGE_PIXELS = None
         with Image.open(src) as probe:  # reads the header only
@@ -147,7 +149,8 @@ def make_video(job):
                         break
                 im = _open_rgb(png)
                 if im.width > 1600:
-                    from PIL import Image
+                    from PIL import Image, ImageFile
+                    ImageFile.LOAD_TRUNCATED_IMAGES = True  # old floppy files often lose a few bytes at the end
                     im = im.resize((1600, round(im.height * 1600 / im.width)), Image.LANCZOS)
                 im.save(poster + ".part", "WEBP", quality=82, method=4)
                 os.replace(poster + ".part", poster)
