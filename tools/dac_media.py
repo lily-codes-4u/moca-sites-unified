@@ -51,10 +51,25 @@ def variant_widths(width):
     return [v for v in VARIANT_WIDTHS if v == VARIANT_WIDTHS[0] or (width or 0) >= v]
 
 
-def outputs_for(key, width=None):
-    """The web versions made for one original: [(suffix, kind)]."""
-    ext = os.path.splitext(key)[1].lower()
+def is_image(key, src=None):
+    """An image by its extension, or an extension-less file (old DOS saves) that Pillow can open."""
+    ext = os.path.splitext(key.rsplit("/", 1)[-1])[1].lower()
     if ext in IMAGE_EXT:
+        return True
+    if ext or not src:
+        return False
+    try:
+        from PIL import Image
+        with Image.open(src):
+            return True
+    except Exception:
+        return False
+
+
+def outputs_for(key, width=None, src=None):
+    """The web versions made for one original: [(suffix, kind)]."""
+    ext = os.path.splitext(key.rsplit("/", 1)[-1])[1].lower()
+    if is_image(key, src):
         return [(f".w{v}.webp", v) for v in variant_widths(width if width is not None else 10 ** 6)]
     if ext in VIDEO_EXT:
         return [(".mp4", "mp4"), (".poster.webp", "poster")]
@@ -181,7 +196,7 @@ def main():
     for key, src, _ in missing[:20]:
         print("  MISSING", src)
 
-    img_jobs = [(src, os.path.join(a.out, key)) for key, src, _ in present if key.lower().endswith(IMAGE_EXT)]
+    img_jobs = [(src, os.path.join(a.out, key)) for key, src, _ in present if is_image(key, src)]
     vid_jobs = [(src, os.path.join(a.out, key)) for key, src, _ in present if key.lower().endswith(VIDEO_EXT)]
     print(f"web versions: {len(img_jobs)} images (up to {len(VARIANT_WIDTHS)} WebP sizes each), {len(vid_jobs)} videos (MP4 + poster)")
     if vid_jobs and not shutil.which("ffmpeg"):
@@ -216,7 +231,7 @@ def main():
     jobs = []
     for key, src, _ in present:
         jobs.append((key, src, os.path.getsize(src)))
-        for suffix, _ in outputs_for(key):
+        for suffix, _ in outputs_for(key, src=src):
             out = os.path.join(a.out, key + suffix)
             if os.path.isfile(out):
                 jobs.append((key + suffix, out, os.path.getsize(out)))
